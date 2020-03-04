@@ -1648,6 +1648,8 @@ func handleUSBIRQ(interrupt.Interrupt) {
 			// clear stall request
 			setEPINTENCLR(0, sam.USB_DEVICE_ENDPOINT_EPINTENCLR_STALL1)
 		}
+	} else if getEPINTFLAG(0)&sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0 > 0 {
+		sendZlp(0)
 	}
 
 	// Now the actual transfer handlers, ignore endpoint number 0 (setup)
@@ -1972,7 +1974,7 @@ func sendDescriptor(setup usbSetup) {
 			sendUSBPacket(0, dd.Bytes()[:8])
 		} else {
 			// complete descriptor requested so send entire packet
-			dd := NewDeviceDescriptor(0x00, 0x00, 0x00, 64, usb_VID, usb_PID, 0x100, usb_IMANUFACTURER, usb_IPRODUCT, usb_ISERIAL, 1)
+			dd := NewDeviceDescriptor(0xEF, 0x02, 0x01, 64, usb_VID, usb_PID, 0x100, usb_IMANUFACTURER, usb_IPRODUCT, usb_ISERIAL, 1)
 			sendUSBPacket(0, dd.Bytes())
 		}
 		return
