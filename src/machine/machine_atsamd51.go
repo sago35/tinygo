@@ -1431,6 +1431,10 @@ type USBCDC struct {
 
 // WriteByte writes a byte of data to the USB CDC interface.
 func (usbcdc USBCDC) WriteByte(c byte) error {
+	if usbConfiguration == 0 {
+		return errors.New("!usbConfiguration")
+	}
+
 	// Supposedly to handle problem with Windows USB serial ports?
 	if usbLineInfo.lineState > 0 {
 		// set the data
@@ -1442,6 +1446,7 @@ func (usbcdc USBCDC) WriteByte(c byte) error {
 		usbEndpointDescriptors[usb_CDC_ENDPOINT_IN].DeviceDescBank[1].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Mask << usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Pos)
 
 		// set count of bytes to be sent
+		usbEndpointDescriptors[usb_CDC_ENDPOINT_IN].DeviceDescBank[1].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask << usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos)
 		usbEndpointDescriptors[usb_CDC_ENDPOINT_IN].DeviceDescBank[1].PCKSIZE.SetBits((1 & usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask) << usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos)
 
 		// clear transfer complete flag
@@ -1503,6 +1508,8 @@ var (
 
 // Configure the USB CDC interface. The config is here for compatibility with the UART interface.
 func (usbcdc USBCDC) Configure(config UARTConfig) {
+	usbConfiguration = 0
+
 	// reset USB interface
 	sam.USB_DEVICE.CTRLA.SetBits(sam.USB_DEVICE_CTRLA_SWRST)
 	for sam.USB_DEVICE.SYNCBUSY.HasBits(sam.USB_DEVICE_SYNCBUSY_SWRST) ||
@@ -1522,6 +1529,7 @@ func (usbcdc USBCDC) Configure(config UARTConfig) {
 	sam.USB_DEVICE.CTRLA.SetBits(sam.USB_DEVICE_CTRLA_RUNSTDBY)
 
 	// set full speed
+	sam.USB_DEVICE.CTRLB.ClearBits(sam.USB_DEVICE_CTRLB_SPDCONF_Msk) // pos ŠÔˆá‚¦‚Ä‚éH 2 ¨ 6 ‚Å‚ÍH
 	sam.USB_DEVICE.CTRLB.SetBits(sam.USB_DEVICE_CTRLB_SPDCONF_FS << sam.USB_DEVICE_CTRLB_SPDCONF_Pos)
 
 	// attach
@@ -1573,20 +1581,27 @@ func handlePadCalibration() {
 	if calibTransN == 0x1f {
 		calibTransN = 5
 	}
+	sam.USB_DEVICE.PADCAL.ClearBits(sam.USB_DEVICE_PADCAL_TRANSN_Msk)
 	sam.USB_DEVICE.PADCAL.SetBits(calibTransN << sam.USB_DEVICE_PADCAL_TRANSN_Pos)
 
 	if calibTransP == 0x1f {
 		calibTransP = 29
 	}
+	sam.USB_DEVICE.PADCAL.ClearBits(sam.USB_DEVICE_PADCAL_TRANSP_Msk)
 	sam.USB_DEVICE.PADCAL.SetBits(calibTransP << sam.USB_DEVICE_PADCAL_TRANSP_Pos)
 
 	if calibTrim == 0x7 {
 		calibTransN = 3
 	}
+	sam.USB_DEVICE.PADCAL.ClearBits(sam.USB_DEVICE_PADCAL_TRIM_Msk)
 	sam.USB_DEVICE.PADCAL.SetBits(calibTrim << sam.USB_DEVICE_PADCAL_TRIM_Pos)
 }
 
 func handleUSBIRQ(interrupt.Interrupt) {
+	if usbPackMessage {
+		return
+	}
+
 	// reset all interrupt flags
 	flags := sam.USB_DEVICE.INTFLAG.Get()
 	sam.USB_DEVICE.INTFLAG.Set(flags)
@@ -1608,6 +1623,7 @@ func handleUSBIRQ(interrupt.Interrupt) {
 	// Start of frame
 	if (flags & sam.USB_DEVICE_INTFLAG_SOF) > 0 {
 		// if you want to blink LED showing traffic, this would be the place...
+		sam.USB_DEVICE.INTFLAG.Set(sam.USB_DEVICE_INTFLAG_SOF)
 	}
 
 	// Endpoint 0 Setup interrupt
@@ -1630,6 +1646,10 @@ func handleUSBIRQ(interrupt.Interrupt) {
 			// Class Interface Requests
 			if setup.wIndex == usb_CDC_ACM_INTERFACE {
 				ok = cdcSetup(setup)
+				if !ok {
+					sendZlp()
+				}
+				ok = true
 			}
 		}
 
@@ -1648,8 +1668,13 @@ func handleUSBIRQ(interrupt.Interrupt) {
 			// clear stall request
 			setEPINTENCLR(0, sam.USB_DEVICE_ENDPOINT_EPINTENCLR_STALL1)
 		}
-	} else {
-		sendZlp()
+	} else if getEPINTFLAG(0)&sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0 > 0 {
+		// xxx
+		//sendZlp()
+		// ack
+		//setEPINTFLAG(0, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0)
+	} else if getEPINTFLAG(0)&sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1 > 0 {
+		//sendZlp()
 	}
 
 	// Now the actual transfer handlers, ignore endpoint number 0 (setup)
@@ -1675,6 +1700,7 @@ func initEndpoint(ep, config uint32) {
 	switch config {
 	case usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn:
 		// set packet size
+		usbEndpointDescriptors[ep].DeviceDescBank[1].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_SIZE_Mask << usb_DEVICE_PCKSIZE_SIZE_Pos)
 		usbEndpointDescriptors[ep].DeviceDescBank[1].PCKSIZE.SetBits(epPacketSize(64) << usb_DEVICE_PCKSIZE_SIZE_Pos)
 
 		// set data buffer address
@@ -1685,6 +1711,7 @@ func initEndpoint(ep, config uint32) {
 
 	case usb_ENDPOINT_TYPE_BULK | usbEndpointOut:
 		// set packet size
+		usbEndpointDescriptors[ep].DeviceDescBank[0].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_SIZE_Mask << usb_DEVICE_PCKSIZE_SIZE_Pos)
 		usbEndpointDescriptors[ep].DeviceDescBank[0].PCKSIZE.SetBits(epPacketSize(64) << usb_DEVICE_PCKSIZE_SIZE_Pos)
 
 		// set data buffer address
@@ -1707,6 +1734,7 @@ func initEndpoint(ep, config uint32) {
 
 	case usb_ENDPOINT_TYPE_BULK | usbEndpointIn:
 		// set packet size
+		usbEndpointDescriptors[ep].DeviceDescBank[1].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_SIZE_Mask << usb_DEVICE_PCKSIZE_SIZE_Pos)
 		usbEndpointDescriptors[ep].DeviceDescBank[1].PCKSIZE.SetBits(epPacketSize(64) << usb_DEVICE_PCKSIZE_SIZE_Pos)
 
 		// set data buffer address
@@ -1721,6 +1749,7 @@ func initEndpoint(ep, config uint32) {
 	case usb_ENDPOINT_TYPE_CONTROL:
 		// Control OUT
 		// set packet size
+		usbEndpointDescriptors[ep].DeviceDescBank[0].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_SIZE_Mask << usb_DEVICE_PCKSIZE_SIZE_Pos)
 		usbEndpointDescriptors[ep].DeviceDescBank[0].PCKSIZE.SetBits(epPacketSize(64) << usb_DEVICE_PCKSIZE_SIZE_Pos)
 
 		// set data buffer address
@@ -1731,6 +1760,7 @@ func initEndpoint(ep, config uint32) {
 
 		// Control IN
 		// set packet size
+		usbEndpointDescriptors[ep].DeviceDescBank[1].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_SIZE_Mask << usb_DEVICE_PCKSIZE_SIZE_Pos)
 		usbEndpointDescriptors[ep].DeviceDescBank[1].PCKSIZE.SetBits(epPacketSize(64) << usb_DEVICE_PCKSIZE_SIZE_Pos)
 
 		// set data buffer address
@@ -1741,6 +1771,7 @@ func initEndpoint(ep, config uint32) {
 
 		// Prepare OUT endpoint for receive
 		// set multi packet size for expected number of receive bytes on control OUT
+		usbEndpointDescriptors[ep].DeviceDescBank[0].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Mask << usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Pos)
 		usbEndpointDescriptors[ep].DeviceDescBank[0].PCKSIZE.SetBits(64 << usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Pos)
 
 		// set byte count to zero, we have not received anything yet
@@ -1768,8 +1799,16 @@ func handleStandardSetup(setup usbSetup) bool {
 
 	case usb_CLEAR_FEATURE:
 		if setup.wValueL == 1 { // DEVICEREMOTEWAKEUP
-			isRemoteWakeUpEnabled = false
-		} else if setup.wValueL == 0 { // ENDPOINTHALT
+			//isRemoteWakeUpEnabled = false
+
+			buf := []byte{0, 0}
+			if isRemoteWakeUpEnabled {
+				buf[0] = 1
+			}
+			sendUSBPacket(0, buf)
+			return true
+
+		} else { //if setup.wValueL == 0 { // ENDPOINTHALT
 			isEndpointHalt = false
 		}
 		sendZlp()
@@ -1778,16 +1817,23 @@ func handleStandardSetup(setup usbSetup) bool {
 	case usb_SET_FEATURE:
 		if setup.wValueL == 1 { // DEVICEREMOTEWAKEUP
 			isRemoteWakeUpEnabled = true
-		} else if setup.wValueL == 0 { // ENDPOINTHALT
-			isEndpointHalt = true
+			buf := []byte{0}
+			sendUSBPacket(0, buf)
+			return true
 		}
-		sendZlp()
-		return true
+		if setup.wValueL == 0 { // ENDPOINTHALT
+			isEndpointHalt = true
+			sendZlp()
+			return true
+		}
+		return false
 
 	case usb_SET_ADDRESS:
 		// set packet size 64 with auto Zlp after transfer
-		usbEndpointDescriptors[0].DeviceDescBank[1].PCKSIZE.Set((epPacketSize(64) << usb_DEVICE_PCKSIZE_SIZE_Pos) |
-			uint32(1<<31)) // autozlp
+		//usbEndpointDescriptors[0].DeviceDescBank[1].PCKSIZE.Set((epPacketSize(64) << usb_DEVICE_PCKSIZE_SIZE_Pos) |
+		//	uint32(1<<31)) // autozlp
+		//inline void epBank1SetByteCount(ep_t ep, uint16_t bc) { EP[0].DeviceDescBank[1].PCKSIZE.bit.BYTE_COUNT = 0; }
+		usbEndpointDescriptors[0].DeviceDescBank[1].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask << usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos)
 
 		// ack the transfer is complete from the request
 		setEPINTFLAG(0, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
@@ -1796,23 +1842,25 @@ func handleStandardSetup(setup usbSetup) bool {
 		setEPSTATUSSET(0, sam.USB_DEVICE_ENDPOINT_EPSTATUSSET_BK1RDY)
 
 		// wait for transfer to complete
-		timeout := 3000
+		//timeout := 300000
 		for (getEPINTFLAG(0) & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1) == 0 {
-			timeout--
-			if timeout == 0 {
-				return true
-			}
+			//timeout--
+			//if timeout == 0 {
+			//	return true
+			//}
 		}
 
 		// last, set the device address to that requested by host
+		sam.USB_DEVICE.DADD.ClearBits(0x7F)
 		sam.USB_DEVICE.DADD.SetBits(setup.wValueL)
+		sam.USB_DEVICE.DADD.ClearBits(sam.USB_DEVICE_DADD_ADDEN)
 		sam.USB_DEVICE.DADD.SetBits(sam.USB_DEVICE_DADD_ADDEN)
 
 		return true
 
 	case usb_GET_DESCRIPTOR:
-		sendDescriptor(setup)
-		return true
+		return sendDescriptor(setup)
+		//return true
 
 	case usb_SET_DESCRIPTOR:
 		return false
@@ -1895,22 +1943,43 @@ func cdcSetup(setup usbSetup) bool {
 			} else {
 				// TODO: cancel any reset
 			}
-			sendZlp()
+			//sendZlp()
+			return false
 		}
 
 		if setup.bRequest == usb_CDC_SEND_BREAK {
 			// TODO: something with this value?
 			// breakValue = ((uint16_t)setup.wValueH << 8) | setup.wValueL;
 			// return false;
-			sendZlp()
+			//sendZlp()
+			return false
 		}
-		return true
 	}
 	return false
 }
 
+var (
+	usbPackMessage = false
+	usbPackBuffer  = make([]byte, 256)
+)
+
+func usbPackMessages(val bool) {
+	if val {
+		usbPackMessage = true
+	} else {
+		usbPackMessage = false
+		//sendUSBPacket(0, usbPackBuffer)
+	}
+}
+
 //go:noinline
 func sendUSBPacket(ep uint32, data []byte) {
+
+	//if usbPackMessage {
+	//	usbPackBuffer = append(usbPackBuffer, data...)
+	//	return
+	//}
+
 	copy(udd_ep_in_cache_buffer[ep][:], data)
 
 	// Set endpoint address for sending data
@@ -1920,6 +1989,7 @@ func sendUSBPacket(ep uint32, data []byte) {
 	usbEndpointDescriptors[ep].DeviceDescBank[1].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Mask << usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Pos)
 
 	// set byte count, which is total number of bytes to be sent
+	usbEndpointDescriptors[ep].DeviceDescBank[1].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask << usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos)
 	usbEndpointDescriptors[ep].DeviceDescBank[1].PCKSIZE.SetBits(uint32((len(data) & usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask) << usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos))
 }
 
@@ -1975,6 +2045,7 @@ func handleEndpoint(ep uint32) {
 	usbEndpointDescriptors[ep].DeviceDescBank[0].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask << usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos)
 
 	// set multi packet size to 64
+	usbEndpointDescriptors[ep].DeviceDescBank[0].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Mask << usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Pos)
 	usbEndpointDescriptors[ep].DeviceDescBank[0].PCKSIZE.SetBits(64 << usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Pos)
 
 	// set ready for next data

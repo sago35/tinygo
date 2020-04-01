@@ -564,6 +564,10 @@ func newUSBSetup(data []byte) usbSetup {
 
 // Read from the RX buffer.
 func (usbcdc USBCDC) Read(data []byte) (n int, err error) {
+	if usbConfiguration == 0 {
+		return 0, errors.New("error")
+	}
+
 	// check if RX buffer is empty
 	size := usbcdc.Buffered()
 	if size == 0 {
@@ -616,11 +620,11 @@ func (usbcdc USBCDC) Receive(data byte) {
 
 // sendDescriptor creates and sends the various USB descriptor types that
 // can be requested by the host.
-func sendDescriptor(setup usbSetup) {
+func sendDescriptor(setup usbSetup) bool {
 	switch setup.wValueH {
 	case usb_CONFIGURATION_DESCRIPTOR_TYPE:
 		sendConfiguration(setup)
-		return
+		return true // fail ‚µ‚È‚¢
 	case usb_DEVICE_DESCRIPTOR_TYPE:
 		// composite descriptor
 		dd := NewDeviceDescriptor(0xef, 0x02, 0x01, 64, usb_VID, usb_PID, 0x100, usb_IMANUFACTURER, usb_IPRODUCT, usb_ISERIAL, 1)
@@ -629,7 +633,7 @@ func sendDescriptor(setup usbSetup) {
 			l = int(setup.wLength)
 		}
 		sendUSBPacket(0, dd.Bytes()[:l])
-		return
+		return true
 
 	case usb_STRING_DESCRIPTOR_TYPE:
 		switch setup.wValueL {
@@ -640,23 +644,38 @@ func sendDescriptor(setup usbSetup) {
 		case usb_IPRODUCT:
 			b := make([]byte, (len(usb_STRING_PRODUCT)<<1)+2)
 			strToUTF16LEDescriptor(usb_STRING_PRODUCT, b)
+			if len(b) > int(setup.wLength) {
+				b = b[:setup.wLength]
+			}
 			sendUSBPacket(0, b)
 
 		case usb_IMANUFACTURER:
 			b := make([]byte, (len(usb_STRING_MANUFACTURER)<<1)+2)
 			strToUTF16LEDescriptor(usb_STRING_MANUFACTURER, b)
+			if len(b) > int(setup.wLength) {
+				b = b[:setup.wLength]
+			}
 			sendUSBPacket(0, b)
 
 		case usb_ISERIAL:
 			// TODO: allow returning a product serial number
-			sendZlp()
+			//sendZlp()
+			usb_SERIAL := "12345678123456781234567812345678\x00"
+			b := make([]byte, (len(usb_SERIAL)<<1)+2)
+			strToUTF16LEDescriptor(usb_SERIAL, b)
+			if len(b) > int(setup.wLength) {
+				b = b[:setup.wLength]
+			}
+			sendUSBPacket(0, b)
+		default:
+			return false
 		}
-		return
+		return true
 	}
 
 	// do not know how to handle this message, so return zero
 	sendZlp()
-	return
+	return false
 }
 
 // sendConfiguration creates and sends the configuration packet to the host.
@@ -704,6 +723,8 @@ func sendConfiguration(setup usbSetup) {
 		buf = append(buf, config.Bytes()...)
 		buf = append(buf, cdc.Bytes()...)
 
+		usbPackMessages(true)
 		sendUSBPacket(0, buf)
+		usbPackMessages(false)
 	}
 }
