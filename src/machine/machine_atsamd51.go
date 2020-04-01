@@ -1529,7 +1529,7 @@ func (usbcdc USBCDC) Configure(config UARTConfig) {
 	sam.USB_DEVICE.CTRLA.SetBits(sam.USB_DEVICE_CTRLA_RUNSTDBY)
 
 	// set full speed
-	sam.USB_DEVICE.CTRLB.ClearBits(sam.USB_DEVICE_CTRLB_SPDCONF_Msk) // pos ä‘à·Ç¶ÇƒÇÈÅH 2 Å® 6 Ç≈ÇÕÅH
+	sam.USB_DEVICE.CTRLB.ClearBits(sam.USB_DEVICE_CTRLB_SPDCONF_Msk)
 	sam.USB_DEVICE.CTRLB.SetBits(sam.USB_DEVICE_CTRLB_SPDCONF_FS << sam.USB_DEVICE_CTRLB_SPDCONF_Pos)
 
 	// attach

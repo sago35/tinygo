@@ -624,7 +624,7 @@ func sendDescriptor(setup usbSetup) bool {
 	switch setup.wValueH {
 	case usb_CONFIGURATION_DESCRIPTOR_TYPE:
 		sendConfiguration(setup)
-		return true // fail ‚µ‚È‚¢
+		return true
 	case usb_DEVICE_DESCRIPTOR_TYPE:
 		// composite descriptor
 		dd := NewDeviceDescriptor(0xef, 0x02, 0x01, 64, usb_VID, usb_PID, 0x100, usb_IMANUFACTURER, usb_IPRODUCT, usb_ISERIAL, 1)
