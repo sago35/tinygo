@@ -604,7 +604,7 @@ func getDefaultPort() (port string, err error) {
 		portPath = "/dev/cuaU*"
 	case "windows":
 		cmd := exec.Command("wmic",
-			"PATH", "Win32_SerialPort", "WHERE", "Caption LIKE 'USB Serial%'", "GET", "DeviceID")
+			"PATH", "Win32_SerialPort", "WHERE", "Caption LIKE 'USB Serial%' OR Caption LIKE 'USB シリアル%'", "GET", "DeviceID")
 
 		var out bytes.Buffer
 		cmd.Stdout = &out
