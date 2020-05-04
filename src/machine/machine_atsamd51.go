@@ -1851,6 +1851,8 @@ func handleStandardSetup(setup usbSetup) bool {
 	}
 }
 
+var cnt01 = 4
+
 func cdcSetup(setup usbSetup) bool {
 	if setup.bmRequestType == usb_REQUEST_DEVICETOHOST_CLASS_INTERFACE {
 		if setup.bRequest == usb_CDC_GET_LINE_CODING {
@@ -1884,7 +1886,11 @@ func cdcSetup(setup usbSetup) bool {
 		if setup.bRequest == usb_CDC_SET_LINE_CODING || setup.bRequest == usb_CDC_SET_CONTROL_LINE_STATE {
 			// auto-reset into the bootloader
 			if usbLineInfo.dwDTERate == 1200 && usbLineInfo.lineState&usb_CDC_LINESTATE_DTR == 0 {
-				ResetProcessor()
+				if 0 < cnt01 {
+					cnt01--
+				} else {
+					ResetProcessor()
+				}
 			} else {
 				// TODO: cancel any reset
 			}
