@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"machine"
 	"unsafe"
 )
 
@@ -10,9 +11,12 @@ type stringer interface {
 
 //go:nobounds
 func printstring(s string) {
+	machine.D10.High()
 	for i := 0; i < len(s); i++ {
 		putchar(s[i])
 	}
+	//machine.UART0.WriteBytes([]byte(s))
+	machine.D10.Low()
 }
 
 func printuint8(n uint8) {
@@ -193,8 +197,11 @@ func printspace() {
 }
 
 func printnl() {
+	machine.D10.High()
 	putchar('\r')
 	putchar('\n')
+	//machine.UART0.WriteBytes([]byte("\r\n"))
+	machine.D10.Low()
 }
 
 func printitf(msg interface{}) {
