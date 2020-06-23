@@ -1695,12 +1695,55 @@ func (usbcdc USBCDC) WriteByte(c byte) error {
 
 		// wait for transfer to complete
 		timeout := 3000
+		D6.High()
 		for (getEPINTFLAG(usb_CDC_ENDPOINT_IN) & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1) == 0 {
 			timeout--
 			if timeout == 0 {
+				D6.Low()
+				D9.Toggle()
 				return errUSBCDCWriteByteTimeout
 			}
 		}
+		D6.Low()
+	}
+
+	return nil
+}
+
+// WriteByte writes a byte of data to the USB CDC interface.
+func (usbcdc USBCDC) WriteBytes(c []byte) error {
+	// Supposedly to handle problem with Windows USB serial ports?
+	if usbLineInfo.lineState > 0 {
+		// set the data
+		copy(udd_ep_in_cache_buffer[usb_CDC_ENDPOINT_IN][:], c)
+
+		usbEndpointDescriptors[usb_CDC_ENDPOINT_IN].DeviceDescBank[1].ADDR.Set(uint32(uintptr(unsafe.Pointer(&udd_ep_in_cache_buffer[usb_CDC_ENDPOINT_IN]))))
+
+		// clean multi packet size of bytes already sent
+		usbEndpointDescriptors[usb_CDC_ENDPOINT_IN].DeviceDescBank[1].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Mask << usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Pos)
+
+		// set count of bytes to be sent
+		usbEndpointDescriptors[usb_CDC_ENDPOINT_IN].DeviceDescBank[1].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask << usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos)
+		usbEndpointDescriptors[usb_CDC_ENDPOINT_IN].DeviceDescBank[1].PCKSIZE.SetBits(uint32(len(c)) << usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos)
+
+		// clear transfer complete flag
+		setEPINTFLAG(usb_CDC_ENDPOINT_IN, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
+
+		// send data by setting bank ready
+		setEPSTATUSSET(usb_CDC_ENDPOINT_IN, sam.USB_DEVICE_ENDPOINT_EPSTATUSSET_BK1RDY)
+
+		// wait for transfer to complete
+		timeout := 3000
+		D11.High()
+		for (getEPINTFLAG(usb_CDC_ENDPOINT_IN) & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1) == 0 {
+			timeout--
+			if timeout == 0 {
+				D11.Low()
+				D12.Toggle()
+				return errUSBCDCWriteByteTimeout
+			}
+		}
+		D11.Low()
 	}
 
 	return nil
