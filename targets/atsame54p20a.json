@@ -1,0 +1,13 @@
+{
+	"inherits": ["cortex-m4"],
+	"build-tags": ["sam", "atsame5x", "atsame54p20", "atsame54p20a"],
+	"cflags": [
+		"-Qunused-arguments"
+	],
+	"linkerscript": "targets/atsame54.ld",
+	"extra-files": [
+		"src/device/sam/atsamd51j20a.s"
+	],
+	"openocd-transport": "swd",
+	"openocd-target": "atsame5x"
+}
