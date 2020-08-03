@@ -1,0 +1,11 @@
+{
+	"inherits": ["cortex-m4"],
+	"build-tags": ["sam", "atsamd51", "atsamd51p19", "atsamd51p19a"],
+	"cflags": [
+		"-Qunused-arguments"
+	],
+	"linkerscript": "targets/atsame54.ld",
+	"extra-files": [
+		"src/device/sam/atsamd51j20a.s"
+	]
+}
