@@ -1,5 +1,5 @@
 // +build stm32
-// +build stm32f405 stm32f407
+// +build stm32f4
 
 // Alternate function numberings on the stm32f40x series
 

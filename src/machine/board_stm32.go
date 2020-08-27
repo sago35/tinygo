@@ -1,4 +1,4 @@
-// +build bluepill nucleof103rb stm32f4disco feather_stm32f405
+// +build stm32
 
 package machine
 
