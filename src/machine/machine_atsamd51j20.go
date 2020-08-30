@@ -30,6 +30,18 @@ func InitPWM() {
 // getTimer returns the timer to be used for PWM on this pin
 func (pwm PWM) getTimer() *sam.TCC_Type {
 	switch pwm.Pin {
+	case PA08:
+		return sam.TCC0
+	case PA09:
+		return sam.TCC0
+	case PA10:
+		return sam.TCC0
+	case PA11:
+		return sam.TCC0
+	case PA12:
+		return sam.TCC0
+	case PA13:
+		return sam.TCC0
 	case PA14:
 		return sam.TCC2
 	case PA15:
@@ -43,12 +55,25 @@ func (pwm PWM) getTimer() *sam.TCC_Type {
 	case PA19:
 		return sam.TCC1
 	case PA20:
-		return sam.TCC0
+		return sam.TCC1
 	case PA21:
-		return sam.TCC0
+		return sam.TCC1
 	case PA22:
-		return sam.TCC0
+		return sam.TCC1
 	case PA23:
+		return sam.TCC1
+	case PA24:
+		return sam.TCC2
+	case PA30:
+		return sam.TCC2
+	case PA31:
+		return sam.TCC2
+
+	case PB02:
+		return sam.TCC2
+	case PB10:
+		return sam.TCC0
+	case PB11:
 		return sam.TCC0
 	case PB12:
 		return sam.TCC3
@@ -59,11 +84,30 @@ func (pwm PWM) getTimer() *sam.TCC_Type {
 	case PB15:
 		return sam.TCC4
 	case PB16:
-		return sam.TCC0
+		return sam.TCC3
 	case PB17:
-		return sam.TCC0
+		return sam.TCC3
+	case PB18:
+		return sam.TCC1
+	case PB19:
+		return sam.TCC1
+	case PB20:
+		return sam.TCC1
+	case PB21:
+		return sam.TCC1
+	case PB26:
+		return sam.TCC1
+	case PB27:
+		return sam.TCC1
+	case PB28:
+		return sam.TCC1
+	case PB29:
+		return sam.TCC1
+	case PB30:
+		return sam.TCC4
 	case PB31:
 		return sam.TCC4
+
 	default:
 		return nil // not supported on this pin
 	}

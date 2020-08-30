@@ -1580,6 +1580,18 @@ func (pwm PWM) setPinCfg(val uint8) {
 // setChannel sets the value for the correct channel for PWM on this pin.
 func (pwm PWM) setChannel(timer *sam.TCC_Type, val uint32) {
 	switch pwm.Pin {
+	case PA08:
+		timer.CC[0].Set(val)
+	case PA09:
+		timer.CC[1].Set(val)
+	case PA10:
+		timer.CC[2].Set(val)
+	case PA11:
+		timer.CC[3].Set(val)
+	case PA12:
+		timer.CC[0].Set(val)
+	case PA13:
+		timer.CC[1].Set(val)
 	case PA14:
 		timer.CC[0].Set(val)
 	case PA15:
@@ -1593,13 +1605,26 @@ func (pwm PWM) setChannel(timer *sam.TCC_Type, val uint32) {
 	case PA19:
 		timer.CC[3].Set(val)
 	case PA20:
-		timer.CC[0].Set(val)
+		timer.CC[4].Set(val)
 	case PA21:
-		timer.CC[1].Set(val)
+		timer.CC[5].Set(val)
 	case PA22:
-		timer.CC[2].Set(val)
+		timer.CC[0].Set(val)
 	case PA23:
-		timer.CC[3].Set(val)
+		timer.CC[1].Set(val)
+	case PA24:
+		timer.CC[2].Set(val)
+	case PA30:
+		timer.CC[0].Set(val)
+	case PA31:
+		timer.CC[1].Set(val)
+
+	case PB02:
+		timer.CC[2].Set(val)
+	case PB10:
+		timer.CC[4].Set(val)
+	case PB11:
+		timer.CC[5].Set(val)
 	case PB12:
 		timer.CC[0].Set(val)
 	case PB13:
@@ -1609,11 +1634,76 @@ func (pwm PWM) setChannel(timer *sam.TCC_Type, val uint32) {
 	case PB15:
 		timer.CC[1].Set(val)
 	case PB16:
-		timer.CC[4].Set(val)
+		timer.CC[0].Set(val)
 	case PB17:
+		timer.CC[1].Set(val)
+	case PB18:
+		timer.CC[0].Set(val)
+	case PB19:
+		timer.CC[1].Set(val)
+	case PB20:
+		timer.CC[2].Set(val)
+	case PB21:
+		timer.CC[3].Set(val)
+	case PB26:
+		timer.CC[2].Set(val)
+	case PB27:
+		timer.CC[3].Set(val)
+	case PB28:
+		timer.CC[4].Set(val)
+	case PB29:
 		timer.CC[5].Set(val)
+	case PB30:
+		timer.CC[0].Set(val)
 	case PB31:
 		timer.CC[1].Set(val)
+
+	case PC04:
+		timer.CC[0].Set(val)
+	case PC10:
+		timer.CC[0].Set(val)
+	case PC11:
+		timer.CC[1].Set(val)
+	case PC12:
+		timer.CC[2].Set(val)
+	case PC13:
+		timer.CC[3].Set(val)
+	case PC14:
+		timer.CC[4].Set(val)
+	case PC15:
+		timer.CC[5].Set(val)
+	case PC16:
+		timer.CC[0].Set(val)
+	case PC17:
+		timer.CC[1].Set(val)
+	case PC18:
+		timer.CC[2].Set(val)
+	case PC19:
+		timer.CC[3].Set(val)
+	case PC20:
+		timer.CC[4].Set(val)
+	case PC21:
+		timer.CC[5].Set(val)
+	case PC22:
+		timer.CC[0].Set(val)
+	case PC23:
+		timer.CC[1].Set(val)
+
+	case PD08:
+		timer.CC[1].Set(val)
+	case PD09:
+		timer.CC[2].Set(val)
+	case PD10:
+		timer.CC[3].Set(val)
+	case PD11:
+		timer.CC[4].Set(val)
+	case PD12:
+		timer.CC[5].Set(val)
+	case PD20:
+		timer.CC[0].Set(val)
+	case PD21:
+		timer.CC[1].Set(val)
+
 	default:
 		return // not supported on this pin
 	}
@@ -1622,6 +1712,18 @@ func (pwm PWM) setChannel(timer *sam.TCC_Type, val uint32) {
 // setChannelBuffer sets the value for the correct channel buffer for PWM on this pin
 func (pwm PWM) setChannelBuffer(timer *sam.TCC_Type, val uint32) {
 	switch pwm.Pin {
+	case PA08:
+		timer.CCBUF[0].Set(val)
+	case PA09:
+		timer.CCBUF[1].Set(val)
+	case PA10:
+		timer.CCBUF[2].Set(val)
+	case PA11:
+		timer.CCBUF[3].Set(val)
+	case PA12:
+		timer.CCBUF[0].Set(val)
+	case PA13:
+		timer.CCBUF[1].Set(val)
 	case PA14:
 		timer.CCBUF[0].Set(val)
 	case PA15:
@@ -1635,13 +1737,26 @@ func (pwm PWM) setChannelBuffer(timer *sam.TCC_Type, val uint32) {
 	case PA19:
 		timer.CCBUF[3].Set(val)
 	case PA20:
-		timer.CCBUF[0].Set(val)
+		timer.CCBUF[4].Set(val)
 	case PA21:
-		timer.CCBUF[1].Set(val)
+		timer.CCBUF[5].Set(val)
 	case PA22:
-		timer.CCBUF[2].Set(val)
+		timer.CCBUF[0].Set(val)
 	case PA23:
-		timer.CCBUF[3].Set(val)
+		timer.CCBUF[1].Set(val)
+	case PA24:
+		timer.CCBUF[2].Set(val)
+	case PA30:
+		timer.CCBUF[0].Set(val)
+	case PA31:
+		timer.CCBUF[1].Set(val)
+
+	case PB02:
+		timer.CCBUF[2].Set(val)
+	case PB10:
+		timer.CCBUF[4].Set(val)
+	case PB11:
+		timer.CCBUF[5].Set(val)
 	case PB12:
 		timer.CCBUF[0].Set(val)
 	case PB13:
@@ -1651,11 +1766,76 @@ func (pwm PWM) setChannelBuffer(timer *sam.TCC_Type, val uint32) {
 	case PB15:
 		timer.CCBUF[1].Set(val)
 	case PB16:
-		timer.CCBUF[4].Set(val)
+		timer.CCBUF[0].Set(val)
 	case PB17:
+		timer.CCBUF[1].Set(val)
+	case PB18:
+		timer.CCBUF[0].Set(val)
+	case PB19:
+		timer.CCBUF[1].Set(val)
+	case PB20:
+		timer.CCBUF[2].Set(val)
+	case PB21:
+		timer.CCBUF[3].Set(val)
+	case PB26:
+		timer.CCBUF[2].Set(val)
+	case PB27:
+		timer.CCBUF[3].Set(val)
+	case PB28:
+		timer.CCBUF[4].Set(val)
+	case PB29:
 		timer.CCBUF[5].Set(val)
+	case PB30:
+		timer.CCBUF[0].Set(val)
 	case PB31:
 		timer.CCBUF[1].Set(val)
+
+	case PC04:
+		timer.CCBUF[0].Set(val)
+	case PC10:
+		timer.CCBUF[0].Set(val)
+	case PC11:
+		timer.CCBUF[1].Set(val)
+	case PC12:
+		timer.CCBUF[2].Set(val)
+	case PC13:
+		timer.CCBUF[3].Set(val)
+	case PC14:
+		timer.CCBUF[4].Set(val)
+	case PC15:
+		timer.CCBUF[5].Set(val)
+	case PC16:
+		timer.CCBUF[0].Set(val)
+	case PC17:
+		timer.CCBUF[1].Set(val)
+	case PC18:
+		timer.CCBUF[2].Set(val)
+	case PC19:
+		timer.CCBUF[3].Set(val)
+	case PC20:
+		timer.CCBUF[4].Set(val)
+	case PC21:
+		timer.CCBUF[5].Set(val)
+	case PC22:
+		timer.CCBUF[0].Set(val)
+	case PC23:
+		timer.CCBUF[1].Set(val)
+
+	case PD08:
+		timer.CCBUF[1].Set(val)
+	case PD09:
+		timer.CCBUF[2].Set(val)
+	case PD10:
+		timer.CCBUF[3].Set(val)
+	case PD11:
+		timer.CCBUF[4].Set(val)
+	case PD12:
+		timer.CCBUF[5].Set(val)
+	case PD20:
+		timer.CCBUF[0].Set(val)
+	case PD21:
+		timer.CCBUF[1].Set(val)
+
 	default:
 		return // not supported on this pin
 	}
