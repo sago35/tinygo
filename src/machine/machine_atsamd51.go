@@ -1514,19 +1514,25 @@ func (spi SPI) rx(rx []byte) {
 }
 
 func (spi SPI) txrx(tx, rx []byte) {
+	BCM3.Toggle()
 	spi.Bus.DATA.Set(uint32(tx[0]))
 	for !spi.Bus.INTFLAG.HasBits(sam.SERCOM_SPIM_INTFLAG_DRE) {
 	}
 
 	for i := 1; i < len(rx); i++ {
 		spi.Bus.DATA.Set(uint32(tx[i]))
+		BCM4.Toggle()
 		for !spi.Bus.INTFLAG.HasBits(sam.SERCOM_SPIM_INTFLAG_RXC) {
 		}
+		BCM4.Toggle()
 		rx[i-1] = byte(spi.Bus.DATA.Get())
 	}
+	BCM27.Toggle()
 	for !spi.Bus.INTFLAG.HasBits(sam.SERCOM_SPIM_INTFLAG_RXC) {
 	}
+	BCM27.Toggle()
 	rx[len(rx)-1] = byte(spi.Bus.DATA.Get())
+	BCM3.Toggle()
 }
 
 // The QSPI peripheral on ATSAMD51 is only available on the following pins
