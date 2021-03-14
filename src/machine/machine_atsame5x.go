@@ -2498,3 +2498,22 @@ func syncDAC() {
 	for sam.DAC.SYNCBUSY.HasBits(sam.DAC_SYNCBUSY_DATA0) {
 	}
 }
+
+var ()
+
+func InitCAN() {
+	sam.CAN1.CCCR.SetBits(sam.CAN_CCCR_INIT)
+	for !sam.CAN1.CCCR.HasBits(sam.CAN_CCCR_INIT) {
+	}
+
+	sam.CAN1.CCCR.SetBits(sam.CAN_CCCR_CCE)
+
+	{
+		sam.CAN1.CCCR.SetBits(sam.CAN_CCCR_BRSE | sam.CAN_CCCR_FDOE)
+		sam.CAN1.MRCFG.Set(sam.CAN_MRCFG_QOS_MEDIUM)
+		sam.CAN1.NBTP.Set(58<<sam.CAN_NBTP_NTSEG1_Pos |
+			19<<sam.CAN_NBTP_NTSEG2_Pos | 14<<sam.CAN_NBTP_NSJW_Pos)
+
+		sam.CAN1.RXF0C.Set(1 << sam.CAN_RXF0C_F0S_Pos)
+	}
+}

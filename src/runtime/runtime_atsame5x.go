@@ -27,6 +27,7 @@ func init() {
 	initSERCOMClocks()
 	initUSBClock()
 	initADCClock()
+	initCANClock()
 
 	// connect to USB CDC interface
 	machine.UART0.Configure(machine.UARTConfig{})
@@ -330,6 +331,18 @@ func initADCClock() {
 	sam.GCLK.PCHCTRL[sam.PCHCTRL_GCLK_ADC0].Set((sam.GCLK_PCHCTRL_GEN_GCLK1 << sam.GCLK_PCHCTRL_GEN_Pos) |
 		sam.GCLK_PCHCTRL_CHEN)
 	sam.GCLK.PCHCTRL[sam.PCHCTRL_GCLK_ADC1].Set((sam.GCLK_PCHCTRL_GEN_GCLK1 << sam.GCLK_PCHCTRL_GEN_Pos) |
+		sam.GCLK_PCHCTRL_CHEN)
+}
+
+func initCANClock() {
+	// Turn on clocks for CAN0/CAN1.
+	sam.MCLK.AHBMASK.SetBits(sam.MCLK_AHBMASK_CAN0_)
+	sam.MCLK.AHBMASK.SetBits(sam.MCLK_AHBMASK_CAN1_)
+
+	// Put Generic Clock Generator 1 as source for USB
+	sam.GCLK.PCHCTRL[sam.PCHCTRL_GCLK_CAN0].Set((sam.GCLK_PCHCTRL_GEN_GCLK2 << sam.GCLK_PCHCTRL_GEN_Pos) |
+		sam.GCLK_PCHCTRL_CHEN)
+	sam.GCLK.PCHCTRL[sam.PCHCTRL_GCLK_CAN1].Set((sam.GCLK_PCHCTRL_GEN_GCLK2 << sam.GCLK_PCHCTRL_GEN_Pos) |
 		sam.GCLK_PCHCTRL_CHEN)
 }
 
