@@ -43,6 +43,9 @@ const (
 	PinPWMF          PinMode = PinTimerAlt
 	PinPWMG          PinMode = PinTCCPDEC
 	PinInputPulldown PinMode = 18
+	PinCAN           PinMode = 19
+	PinCAN0          PinMode = PinSDHC
+	PinCAN1          PinMode = PinCom
 )
 
 type PinChange uint8
@@ -626,6 +629,18 @@ func (p Pin) Configure(config PinConfig) {
 		}
 		// enable port config
 		p.setPinCfg(sam.PORT_GROUP_PINCFG_PMUXEN | sam.PORT_GROUP_PINCFG_DRVSTR)
+	case PinSDHC:
+		if p&1 > 0 {
+			// odd pin, so save the even pins
+			val := p.getPMux() & sam.PORT_GROUP_PMUX_PMUXE_Msk
+			p.setPMux(val | (uint8(PinSDHC) << sam.PORT_GROUP_PMUX_PMUXO_Pos))
+		} else {
+			// even pin, so save the odd pins
+			val := p.getPMux() & sam.PORT_GROUP_PMUX_PMUXO_Msk
+			p.setPMux(val | (uint8(PinSDHC) << sam.PORT_GROUP_PMUX_PMUXE_Pos))
+		}
+		// enable port config
+		p.setPinCfg(sam.PORT_GROUP_PINCFG_PMUXEN)
 	}
 }
 
@@ -2499,7 +2514,16 @@ func syncDAC() {
 	}
 }
 
-var ()
+// Message RAM can only be located in the first 64 KB area of the system RAM.
+
+// go:align 4
+var CANRxFifo [128]byte
+
+// go:align 4
+var CANTxFifo [128]byte
+
+// go:align 4
+var CANEvFifo [128]byte
 
 func InitCAN() {
 	sam.CAN1.CCCR.SetBits(sam.CAN_CCCR_INIT)
@@ -2511,9 +2535,62 @@ func InitCAN() {
 	{
 		sam.CAN1.CCCR.SetBits(sam.CAN_CCCR_BRSE | sam.CAN_CCCR_FDOE)
 		sam.CAN1.MRCFG.Set(sam.CAN_MRCFG_QOS_MEDIUM)
-		sam.CAN1.NBTP.Set(58<<sam.CAN_NBTP_NTSEG1_Pos |
-			19<<sam.CAN_NBTP_NTSEG2_Pos | 14<<sam.CAN_NBTP_NSJW_Pos)
+		sam.CAN1.NBTP.Set(10<<sam.CAN_NBTP_NTSEG1_Pos | (6-1)<<sam.CAN_NBTP_NBRP_Pos |
+			3<<sam.CAN_NBTP_NTSEG2_Pos | 3<<sam.CAN_NBTP_NSJW_Pos)
 
-		sam.CAN1.RXF0C.Set(1 << sam.CAN_RXF0C_F0S_Pos)
+		sam.CAN1.RXF0C.Set(sam.CAN_RXF0C_F0OM | 1<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[0])))&0xFFFF)
+		sam.CAN1.RXESC.Set(sam.CAN_RXESC_F0DS_DATA64)
+		sam.CAN1.TXESC.Set(sam.CAN_TXESC_TBDS_DATA64)
+		sam.CAN1.TXBC.Set(1<<sam.CAN_TXBC_TFQS_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[0])))&0xFFFF)
+		sam.CAN1.TXEFC.Set(2<<sam.CAN_TXEFC_EFS_Pos | uint32(uintptr(unsafe.Pointer(&CANEvFifo[0])))&0xFFFF)
+
+		sam.CAN1.GFC.Set(2<<sam.CAN_GFC_ANFS_Pos | 2<<sam.CAN_GFC_ANFE_Pos)
+
+		sam.CAN1.SIDFC.Set(0 << sam.CAN_SIDFC_LSS_Pos) // differ from CAN FD Demo
+		sam.CAN1.XIDFC.Set(0 << sam.CAN_SIDFC_LSS_Pos) // differ from CAN FD Demo
+
+		sam.CAN1.XIDAM.Set(0x1FFFFFFF << sam.CAN_XIDAM_EIDM_Pos)
+
+		// DisableIRQ
+		// ClearPengingIRQ
+		// EnableIRQ
+		//sam.CAN1.ILE.Set(sam.CAN_ILE_EINT1)
 	}
+
+	sam.CAN1.CCCR.ClearBits(sam.CAN_CCCR_CCE)
+	sam.CAN1.CCCR.ClearBits(sam.CAN_CCCR_INIT)
+	for sam.CAN1.CCCR.HasBits(sam.CAN_CCCR_INIT) {
+	}
+
+	// PB13 -> CAN1_RX
+	// PB12 -> CAN1_TX
+	PB13.Configure(PinConfig{Mode: PinCAN1})
+	PB12.Configure(PinConfig{Mode: PinCAN1})
+}
+
+func Tx(id uint32, dlc byte, data []byte) {
+	// 空チェック TXFQS.TFQF
+
+	// TFQS.TFQPI
+	putIndex := (sam.CAN1.TXFQS.Get() & sam.CAN_TXFQS_TFQPI_Msk) >> sam.CAN_TXFQS_TFQPI_Pos
+
+	f := CANTxFifo[putIndex : putIndex+8+64]
+	if true {
+		// 11 bit は ID[28:0] に左詰め
+		id <<= 18
+	}
+
+	for i := byte(0); i < dlc; i++ {
+		f[8+i] = data[i]
+	}
+
+	f[3] = byte(id >> 24)
+	f[2] = byte(id >> 16)
+	f[1] = byte(id >> 8)
+	f[0] = byte(0)
+	f[7] = 0x00
+	f[6] = dlc
+	f[5] = 0x00 // reserved
+	f[4] = 0x00 // reserved
+	sam.CAN1.TXBAR.SetBits(1 << putIndex)
 }
