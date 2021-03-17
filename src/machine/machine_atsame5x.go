@@ -2516,6 +2516,16 @@ func syncDAC() {
 
 // Message RAM can only be located in the first 64 KB area of the system RAM.
 
+type CAN struct {
+	Bus *sam.CAN_Type
+}
+
+type CANConfig struct {
+	Frequency uint32
+	Tx        Pin
+	Rx        Pin
+}
+
 // go:align 4
 var CANRxFifo [128]byte
 
@@ -2525,54 +2535,58 @@ var CANTxFifo [128]byte
 // go:align 4
 var CANEvFifo [128]byte
 
-func InitCAN() {
-	sam.CAN1.CCCR.SetBits(sam.CAN_CCCR_INIT)
-	for !sam.CAN1.CCCR.HasBits(sam.CAN_CCCR_INIT) {
+func (can CAN) Configure(config CANConfig) error {
+	can.Bus.CCCR.SetBits(sam.CAN_CCCR_INIT)
+	for !can.Bus.CCCR.HasBits(sam.CAN_CCCR_INIT) {
 	}
 
-	sam.CAN1.CCCR.SetBits(sam.CAN_CCCR_CCE)
+	can.Bus.CCCR.SetBits(sam.CAN_CCCR_CCE)
 
 	{
-		sam.CAN1.CCCR.SetBits(sam.CAN_CCCR_BRSE | sam.CAN_CCCR_FDOE)
-		sam.CAN1.MRCFG.Set(sam.CAN_MRCFG_QOS_MEDIUM)
-		sam.CAN1.NBTP.Set(10<<sam.CAN_NBTP_NTSEG1_Pos | (6-1)<<sam.CAN_NBTP_NBRP_Pos |
+		can.Bus.CCCR.SetBits(sam.CAN_CCCR_BRSE | sam.CAN_CCCR_FDOE)
+		can.Bus.MRCFG.Set(sam.CAN_MRCFG_QOS_MEDIUM)
+		can.Bus.NBTP.Set(10<<sam.CAN_NBTP_NTSEG1_Pos | (6-1)<<sam.CAN_NBTP_NBRP_Pos |
 			3<<sam.CAN_NBTP_NTSEG2_Pos | 3<<sam.CAN_NBTP_NSJW_Pos)
 
-		sam.CAN1.RXF0C.Set(sam.CAN_RXF0C_F0OM | 1<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[0])))&0xFFFF)
-		sam.CAN1.RXESC.Set(sam.CAN_RXESC_F0DS_DATA64)
-		sam.CAN1.TXESC.Set(sam.CAN_TXESC_TBDS_DATA64)
-		sam.CAN1.TXBC.Set(1<<sam.CAN_TXBC_TFQS_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[0])))&0xFFFF)
-		sam.CAN1.TXEFC.Set(2<<sam.CAN_TXEFC_EFS_Pos | uint32(uintptr(unsafe.Pointer(&CANEvFifo[0])))&0xFFFF)
+		can.Bus.RXF0C.Set(sam.CAN_RXF0C_F0OM | 1<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[0])))&0xFFFF)
+		can.Bus.RXESC.Set(sam.CAN_RXESC_F0DS_DATA64)
+		can.Bus.TXESC.Set(sam.CAN_TXESC_TBDS_DATA64)
+		can.Bus.TXBC.Set(1<<sam.CAN_TXBC_TFQS_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[0])))&0xFFFF)
+		can.Bus.TXEFC.Set(2<<sam.CAN_TXEFC_EFS_Pos | uint32(uintptr(unsafe.Pointer(&CANEvFifo[0])))&0xFFFF)
 
-		sam.CAN1.GFC.Set(2<<sam.CAN_GFC_ANFS_Pos | 2<<sam.CAN_GFC_ANFE_Pos)
+		can.Bus.GFC.Set(2<<sam.CAN_GFC_ANFS_Pos | 2<<sam.CAN_GFC_ANFE_Pos)
 
-		sam.CAN1.SIDFC.Set(0 << sam.CAN_SIDFC_LSS_Pos) // differ from CAN FD Demo
-		sam.CAN1.XIDFC.Set(0 << sam.CAN_SIDFC_LSS_Pos) // differ from CAN FD Demo
+		can.Bus.SIDFC.Set(0 << sam.CAN_SIDFC_LSS_Pos) // differ from CAN FD Demo
+		can.Bus.XIDFC.Set(0 << sam.CAN_SIDFC_LSS_Pos) // differ from CAN FD Demo
 
-		sam.CAN1.XIDAM.Set(0x1FFFFFFF << sam.CAN_XIDAM_EIDM_Pos)
+		can.Bus.XIDAM.Set(0x1FFFFFFF << sam.CAN_XIDAM_EIDM_Pos)
 
 		// DisableIRQ
 		// ClearPengingIRQ
 		// EnableIRQ
-		//sam.CAN1.ILE.Set(sam.CAN_ILE_EINT1)
+		//can.Bus.ILE.Set(sam.CAN_ILE_EINT1)
 	}
 
-	sam.CAN1.CCCR.ClearBits(sam.CAN_CCCR_CCE)
-	sam.CAN1.CCCR.ClearBits(sam.CAN_CCCR_INIT)
-	for sam.CAN1.CCCR.HasBits(sam.CAN_CCCR_INIT) {
+	can.Bus.CCCR.ClearBits(sam.CAN_CCCR_CCE)
+	can.Bus.CCCR.ClearBits(sam.CAN_CCCR_INIT)
+	for can.Bus.CCCR.HasBits(sam.CAN_CCCR_INIT) {
 	}
 
-	// PB13 -> CAN1_RX
-	// PB12 -> CAN1_TX
-	PB13.Configure(PinConfig{Mode: PinCAN1})
-	PB12.Configure(PinConfig{Mode: PinCAN1})
+	mode := PinCAN0
+	if can.Bus == sam.CAN1 {
+		mode = PinCAN1
+	}
+	config.Rx.Configure(PinConfig{Mode: mode})
+	config.Tx.Configure(PinConfig{Mode: mode})
+
+	return nil
 }
 
-func Tx(id uint32, dlc byte, data []byte) {
+func (can CAN) Tx(id uint32, dlc byte, data []byte) {
 	// 空チェック TXFQS.TFQF
 
 	// TFQS.TFQPI
-	putIndex := (sam.CAN1.TXFQS.Get() & sam.CAN_TXFQS_TFQPI_Msk) >> sam.CAN_TXFQS_TFQPI_Pos
+	putIndex := (can.Bus.TXFQS.Get() & sam.CAN_TXFQS_TFQPI_Msk) >> sam.CAN_TXFQS_TFQPI_Pos
 
 	f := CANTxFifo[putIndex : putIndex+8+64]
 	if true {
@@ -2592,5 +2606,5 @@ func Tx(id uint32, dlc byte, data []byte) {
 	f[6] = dlc
 	f[5] = 0x00 // reserved
 	f[4] = 0x00 // reserved
-	sam.CAN1.TXBAR.SetBits(1 << putIndex)
+	can.Bus.TXBAR.SetBits(1 << putIndex)
 }
