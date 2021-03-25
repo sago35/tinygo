@@ -30,17 +30,17 @@ func main() {
 		Tx:        machine.PB12,
 	})
 
-	//can0 := machine.CAN{Bus: sam.CAN0}
-	//can0.Configure(machine.CANConfig{
-	//	Frequency: 500000,
-	//	Rx:        machine.PA22,
-	//	Tx:        machine.PA23,
-	//})
+	can0 := machine.CAN{Bus: sam.CAN0}
+	can0.Configure(machine.CANConfig{
+		Frequency: 500000,
+		Rx:        machine.PA23,
+		Tx:        machine.PA22,
+	})
 
 	for {
 		led.Toggle()
 		can1.Tx(0x123, 8, []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF})
-		//can0.Tx(0x456, 8, []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF})
+		can0.Tx(0x456, 8, []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF})
 		time.Sleep(time.Millisecond * 1000)
 	}
 }
