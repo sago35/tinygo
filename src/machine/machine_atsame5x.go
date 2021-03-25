@@ -2517,7 +2517,8 @@ func syncDAC() {
 // Message RAM can only be located in the first 64 KB area of the system RAM.
 
 type CAN struct {
-	Bus *sam.CAN_Type
+	Bus     *sam.CAN_Type
+	Channel byte
 }
 
 type CANConfig struct {
@@ -2527,20 +2528,28 @@ type CANConfig struct {
 }
 
 // go:align 4
-var CANRxFifo [128]byte
+var CANRxFifo [2][128]byte
 
 // go:align 4
-var CANTxFifo [128]byte
+var CANTxFifo [2][128]byte
 
 // go:align 4
-var CANEvFifo [128]byte
+var CANEvFifo [2][128]byte
 
-func (can CAN) Configure(config CANConfig) error {
+func (can *CAN) Configure(config CANConfig) error {
 	can.Bus.CCCR.SetBits(sam.CAN_CCCR_INIT)
 	for !can.Bus.CCCR.HasBits(sam.CAN_CCCR_INIT) {
 	}
 
 	can.Bus.CCCR.SetBits(sam.CAN_CCCR_CCE)
+	can.Channel = 0
+	if can.Bus == sam.CAN1 {
+		can.Channel = 1
+	}
+
+	//if can.Channel == 0 {
+	can.Bus.TEST.Set(sam.CAN_TEST_LBCK)
+	//}
 
 	{
 		can.Bus.CCCR.SetBits(sam.CAN_CCCR_BRSE | sam.CAN_CCCR_FDOE)
@@ -2548,11 +2557,11 @@ func (can CAN) Configure(config CANConfig) error {
 		can.Bus.NBTP.Set(10<<sam.CAN_NBTP_NTSEG1_Pos | (6-1)<<sam.CAN_NBTP_NBRP_Pos |
 			3<<sam.CAN_NBTP_NTSEG2_Pos | 3<<sam.CAN_NBTP_NSJW_Pos)
 
-		can.Bus.RXF0C.Set(sam.CAN_RXF0C_F0OM | 1<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[0])))&0xFFFF)
+		can.Bus.RXF0C.Set(sam.CAN_RXF0C_F0OM | 1<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[can.Channel][0])))&0xFFFF)
 		can.Bus.RXESC.Set(sam.CAN_RXESC_F0DS_DATA64)
 		can.Bus.TXESC.Set(sam.CAN_TXESC_TBDS_DATA64)
-		can.Bus.TXBC.Set(1<<sam.CAN_TXBC_TFQS_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[0])))&0xFFFF)
-		can.Bus.TXEFC.Set(2<<sam.CAN_TXEFC_EFS_Pos | uint32(uintptr(unsafe.Pointer(&CANEvFifo[0])))&0xFFFF)
+		can.Bus.TXBC.Set(1<<sam.CAN_TXBC_TFQS_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[can.Channel][0])))&0xFFFF)
+		can.Bus.TXEFC.Set(2<<sam.CAN_TXEFC_EFS_Pos | uint32(uintptr(unsafe.Pointer(&CANEvFifo[can.Channel][0])))&0xFFFF)
 
 		can.Bus.GFC.Set(2<<sam.CAN_GFC_ANFS_Pos | 2<<sam.CAN_GFC_ANFE_Pos)
 
@@ -2588,7 +2597,7 @@ func (can CAN) Tx(id uint32, dlc byte, data []byte) {
 	// TFQS.TFQPI
 	putIndex := (can.Bus.TXFQS.Get() & sam.CAN_TXFQS_TFQPI_Msk) >> sam.CAN_TXFQS_TFQPI_Pos
 
-	f := CANTxFifo[putIndex : putIndex+8+64]
+	f := CANTxFifo[can.Channel][putIndex : putIndex+8+64]
 	if true {
 		// 11 bit は ID[28:0] に左詰め
 		id <<= 18
