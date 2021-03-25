@@ -2547,10 +2547,6 @@ func (can *CAN) Configure(config CANConfig) error {
 		can.Channel = 1
 	}
 
-	//if can.Channel == 0 {
-	can.Bus.TEST.Set(sam.CAN_TEST_LBCK)
-	//}
-
 	{
 		can.Bus.CCCR.SetBits(sam.CAN_CCCR_BRSE | sam.CAN_CCCR_FDOE)
 		can.Bus.MRCFG.Set(sam.CAN_MRCFG_QOS_MEDIUM)
