@@ -13,6 +13,10 @@ func main() {
 	// CAN1_RX  : PB13
 	// CAN1_TX  : PB12
 
+	vcom := machine.UART4
+	vcom.Configure(machine.UARTConfig{TX: machine.UART4_TX_PIN, RX: machine.UART4_RX_PIN})
+	//fmt.Fprintf(vcom, "115200 bps で接続すれば Virtual COM Port も使えます\r\n")
+
 	// Activate CANtr
 	stb := machine.PC13
 	stb.Configure(machine.PinConfig{Mode: machine.PinOutput})
