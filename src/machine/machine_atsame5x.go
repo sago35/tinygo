@@ -2550,10 +2550,15 @@ func (can *CAN) Configure(config CANConfig) error {
 	{
 		can.Bus.CCCR.SetBits(sam.CAN_CCCR_BRSE | sam.CAN_CCCR_FDOE)
 		can.Bus.MRCFG.Set(sam.CAN_MRCFG_QOS_MEDIUM)
+		// base clock == 48 MHz
+		// 500kbps
 		can.Bus.NBTP.Set(10<<sam.CAN_NBTP_NTSEG1_Pos | (6-1)<<sam.CAN_NBTP_NBRP_Pos |
 			3<<sam.CAN_NBTP_NTSEG2_Pos | 3<<sam.CAN_NBTP_NSJW_Pos)
 
-		can.Bus.RXF0C.Set(sam.CAN_RXF0C_F0OM | 1<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[can.Channel][0])))&0xFFFF)
+		// 1000kbps
+		can.Bus.DBTP.Set((3-1)<<sam.CAN_DBTP_DBRP_Pos | 10<<sam.CAN_DBTP_DTSEG1_Pos |
+			3<<sam.CAN_DBTP_DTSEG2_Pos | 3<<sam.CAN_DBTP_DSJW_Pos)
+
 		can.Bus.RXESC.Set(sam.CAN_RXESC_F0DS_DATA64)
 		can.Bus.TXESC.Set(sam.CAN_TXESC_TBDS_DATA64)
 		can.Bus.TXBC.Set(1<<sam.CAN_TXBC_TFQS_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[can.Channel][0])))&0xFFFF)
@@ -2609,6 +2614,50 @@ func (can CAN) Tx(id uint32, dlc byte, data []byte) {
 	f[0] = byte(0)
 	f[7] = 0x00
 	f[6] = dlc
+	f[5] = 0x00 // reserved
+	f[4] = 0x00 // reserved
+	can.Bus.TXBAR.SetBits(1 << putIndex)
+}
+
+func (can CAN) TxFD(id uint32, dlc byte, data []byte) {
+	// 空チェック TXFQS.TFQF
+
+	// TFQS.TFQPI
+	putIndex := (can.Bus.TXFQS.Get() & sam.CAN_TXFQS_TFQPI_Msk) >> sam.CAN_TXFQS_TFQPI_Pos
+
+	f := CANTxFifo[can.Channel][putIndex : putIndex+8+64]
+	if true {
+		// 11 bit は ID[28:0] に左詰め
+		id <<= 18
+	}
+
+	for i := byte(0); i < dlc; i++ {
+		f[8+i] = data[i]
+	}
+
+	if dlc <= 0x08 {
+	} else if dlc <= 12 {
+		dlc = 0x09
+	} else if dlc <= 16 {
+		dlc = 0x0A
+	} else if dlc <= 20 {
+		dlc = 0x0B
+	} else if dlc <= 24 {
+		dlc = 0x0C
+	} else if dlc <= 32 {
+		dlc = 0x0D
+	} else if dlc <= 48 {
+		dlc = 0x0E
+	} else if dlc <= 64 {
+		dlc = 0x0F
+	}
+
+	f[3] = byte(id >> 24)
+	f[2] = byte(id >> 16)
+	f[1] = byte(id >> 8)
+	f[0] = byte(0)
+	f[7] = 0x00
+	f[6] = dlc | 0x20 | 0x10
 	f[5] = 0x00 // reserved
 	f[4] = 0x00 // reserved
 	can.Bus.TXBAR.SetBits(1 << putIndex)
