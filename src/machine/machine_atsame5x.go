@@ -2528,13 +2528,13 @@ type CANConfig struct {
 }
 
 // go:align 4
-var CANRxFifo [2][128]byte
+var CANRxFifo [2][1024]byte
 
 // go:align 4
-var CANTxFifo [2][128]byte
+var CANTxFifo [2][1024]byte
 
 // go:align 4
-var CANEvFifo [2][128]byte
+var CANEvFifo [2][1024]byte
 
 func (can *CAN) Configure(config CANConfig) error {
 	can.Bus.CCCR.SetBits(sam.CAN_CCCR_INIT)
@@ -2559,12 +2559,13 @@ func (can *CAN) Configure(config CANConfig) error {
 		can.Bus.DBTP.Set((3-1)<<sam.CAN_DBTP_DBRP_Pos | 10<<sam.CAN_DBTP_DTSEG1_Pos |
 			3<<sam.CAN_DBTP_DTSEG2_Pos | 3<<sam.CAN_DBTP_DSJW_Pos)
 
+		can.Bus.RXF0C.Set(sam.CAN_RXF0C_F0OM | 12<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[can.Channel][0])))&0xFFFF)
 		can.Bus.RXESC.Set(sam.CAN_RXESC_F0DS_DATA64)
 		can.Bus.TXESC.Set(sam.CAN_TXESC_TBDS_DATA64)
 		can.Bus.TXBC.Set(1<<sam.CAN_TXBC_TFQS_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[can.Channel][0])))&0xFFFF)
 		can.Bus.TXEFC.Set(2<<sam.CAN_TXEFC_EFS_Pos | uint32(uintptr(unsafe.Pointer(&CANEvFifo[can.Channel][0])))&0xFFFF)
 
-		can.Bus.GFC.Set(2<<sam.CAN_GFC_ANFS_Pos | 2<<sam.CAN_GFC_ANFE_Pos)
+		can.Bus.GFC.Set(0<<sam.CAN_GFC_ANFS_Pos | 0<<sam.CAN_GFC_ANFE_Pos)
 
 		can.Bus.SIDFC.Set(0 << sam.CAN_SIDFC_LSS_Pos) // differ from CAN FD Demo
 		can.Bus.XIDFC.Set(0 << sam.CAN_SIDFC_LSS_Pos) // differ from CAN FD Demo
@@ -2661,4 +2662,47 @@ func (can CAN) TxFD(id uint32, dlc byte, data []byte) {
 	f[5] = 0x00 // reserved
 	f[4] = 0x00 // reserved
 	can.Bus.TXBAR.SetBits(1 << putIndex)
+}
+
+func (can CAN) Size() int {
+	sz := (can.Bus.RXF0S.Get() & sam.CAN_RXF0S_F0FL_Msk) >> sam.CAN_RXF0S_F0FL_Pos
+	return int(sz)
+}
+
+func (can CAN) Rx() (id uint32, dlc byte, data []byte) {
+	idx := (can.Bus.RXF0S.Get() & sam.CAN_RXF0S_F0GI_Msk) >> sam.CAN_RXF0S_F0GI_Pos
+	f := CANRxFifo[can.Channel][idx*(8+64):]
+
+	id = ((uint32(f[3]) << 24) + (uint32(f[2]) << 16) + (uint32(f[1]) << 8) + uint32(f[0])) & 0x1FFFFFFF
+	if (f[3] & 0x20) == 0 {
+		id >>= 18
+		id &= 0x000007FF
+	}
+	dlc = byte(idx)
+
+	dlc = f[6] & 0x0F
+	if dlc == 0x09 {
+		dlc = 12
+	} else if dlc == 0x0A {
+		dlc = 16
+	} else if dlc == 0x0B {
+		dlc = 20
+	} else if dlc == 0x0C {
+		dlc = 24
+	} else if dlc == 0x0D {
+		dlc = 32
+	} else if dlc == 0x0E {
+		dlc = 48
+	} else if dlc == 0x0F {
+		dlc = 64
+	}
+
+	for i := byte(0); i < dlc; i++ {
+		data = append(data, f[i+8])
+	}
+	data = data[:dlc]
+
+	can.Bus.RXF0A.ReplaceBits(idx, sam.CAN_RXF0A_F0AI_Msk, sam.CAN_RXF0A_F0AI_Pos)
+
+	return id, dlc, data
 }
