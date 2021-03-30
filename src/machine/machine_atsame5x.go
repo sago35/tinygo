@@ -2517,8 +2517,9 @@ func syncDAC() {
 // Message RAM can only be located in the first 64 KB area of the system RAM.
 
 type CAN struct {
-	Bus     *sam.CAN_Type
-	Channel byte
+	Bus       *sam.CAN_Type
+	Channel   byte
+	Interrupt interrupt.Interrupt
 }
 
 type CANConfig struct {
@@ -2535,6 +2536,10 @@ var CANTxFifo [2][1024]byte
 
 // go:align 4
 var CANEvFifo [2][1024]byte
+
+var (
+	canCallbacks [2]func()
+)
 
 func (can *CAN) Configure(config CANConfig) error {
 	can.Bus.CCCR.SetBits(sam.CAN_CCCR_INIT)
@@ -2575,7 +2580,17 @@ func (can *CAN) Configure(config CANConfig) error {
 		// DisableIRQ
 		// ClearPengingIRQ
 		// EnableIRQ
-		//can.Bus.ILE.Set(sam.CAN_ILE_EINT1)
+		//can.Bus.ILE.Set(sam.CAN_ILE_EINT0)
+
+		//interrupt.New(sam.IRQ_CAN0, HandleCANIntr).Enable()
+		//can.Interrupt = interrupt.New(sam.IRQ_CAN0, HandleCANIntr)
+		//can.Interrupt = interrupt.New(sam.IRQ_CAN0, func(interrupt.Interrupt) {
+		//	for {
+		//		LED.Toggle()
+		//	}
+		//})
+		//can.Interrupt.Enable()
+		can.Bus.ILE.SetBits(sam.CAN_ILE_EINT0)
 	}
 
 	can.Bus.CCCR.ClearBits(sam.CAN_CCCR_CCE)
@@ -2589,6 +2604,49 @@ func (can *CAN) Configure(config CANConfig) error {
 	}
 	config.Rx.Configure(PinConfig{Mode: mode})
 	config.Tx.Configure(PinConfig{Mode: mode})
+
+	return nil
+}
+
+//func (can CAN) handleInterrupt(int interrupt.Interrupt) {
+//	LED.Toggle()
+//	can.Bus.IR.ClearBits(sam.CAN_IR_RF0N)
+//
+//	if canCallbacks[can.Channel] == nil {
+//		return
+//	}
+//
+//	canCallbacks[can.Channel]()
+//}
+
+func HandleCANIntr(intr interrupt.Interrupt) {
+	sam.CAN0.IR.SetBits(sam.CAN_IR_RF0N)
+	//PB04.Toggle()
+	//LED.Toggle()
+	//sam.CAN0.IR.SetBits(0xFFFFFFFF)
+	//sam.CAN1.IR.SetBits(0xFFFFFFFF)
+}
+
+func SetCANInterrupt() error {
+	sam.CAN0.ILE.SetBits(sam.CAN_ILE_EINT0)
+	sam.CAN0.IE.SetBits(sam.CAN_IE_RF0NE)
+	//interrupt.New(sam.IRQ_CAN0, HandleCANIntr).Enable()
+
+	//interrupt.New(sam.IRQ_CAN0, func(interrupt.Interrupt) {}).Enable()
+
+	//canCallbacks[can.Channel] = callback
+
+	//fmt.Fprintf(UART4, "%#v %#v\r\n", can.Bus.IE.Get(), can.Bus.ILE.Get())
+	//sam.CAN0.ILS.SetBits(sam.CAN_ILS_RF0NL)
+	//interrupt.New(sam.IRQ_CAN0, HandleCANIntr).Enable()
+	//fmt.Fprintf(UART4, "%#v %#v\r\n", can.Bus.IE.Get(), can.Bus.ILE.Get())
+
+	// ここが問題
+	//interrupt.New(sam.IRQ_CAN0, HandleCANIntr).Enable()
+	//interrupt.New(sam.IRQ_CAN0, can.handleInterrupt).Enable()
+	//irq := interrupt.New(sam.IRQ_CAN0, HandleCANIntr)
+	//irq.SetPriority(0xFF)
+	//irq.Enable()
 
 	return nil
 }
