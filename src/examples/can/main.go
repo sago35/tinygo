@@ -55,7 +55,6 @@ func main() {
 	sam.CAN0.IE.SetBits(sam.CAN_IE_RF0NE)
 	interrupt.New(sam.IRQ_CAN0, func(interrupt.Interrupt) {
 		sam.CAN0.IR.SetBits(sam.CAN_IR_RF0N)
-		pb04.Toggle()
 	}).Enable()
 
 	//interrupt.New(sam.IRQ_CAN0, func(interrupt.Interrupt) {}).Enable()
@@ -63,6 +62,7 @@ func main() {
 
 	for {
 		if true {
+			pb04.Toggle()
 			led.Toggle()
 		}
 		can1.Tx(0x123, 8, []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF})
