@@ -68,12 +68,17 @@ commands:
     steps:
       - restore_cache:
           keys:
-            - llvm-source-11-v1
+            - llvm-source-11-v4-2
       - run:
           name: "Fetch LLVM source"
-          command: make llvm-source
+          command: |
+            if [ ! -e llvm-project ]
+            then
+              make llvm-source
+              find llvm-project -type f | grep -v '\.\(h\|def\)$' | xargs rm -f
+            fi
       - save_cache:
-          key: llvm-source-11-v1
+          key: llvm-source-11-v4-2
           paths:
             - llvm-project
   build-wasi-libc:
@@ -154,12 +159,15 @@ commands:
       - llvm-source-linux
       - restore_cache:
           keys:
-            - llvm-build-11-linux-v2-assert
+            - llvm-build-11-linux-v4-assert
       - run:
           name: "Build LLVM"
           command: |
             if [ ! -f llvm-build/lib/liblldELF.a ]
             then
+              # fetch LLVM source
+              rm -rf llvm-project
+              make llvm-source
               # install dependencies
               sudo apt-get install cmake ninja-build
               # hack ninja to use less jobs
@@ -167,9 +175,11 @@ commands:
               chmod +x /go/bin/ninja
               # build!
               make ASSERT=1 llvm-build
+              find llvm-build -name "*.o" | xargs rm -f
+              rm -f llvm-build/build.ninja
             fi
       - save_cache:
-          key: llvm-build-11-linux-v2-assert
+          key: llvm-build-11-linux-v4-assert
           paths:
             llvm-build
       - run: make ASSERT=1
@@ -218,12 +228,15 @@ commands:
       - llvm-source-linux
       - restore_cache:
           keys:
-            - llvm-build-11-linux-v2-noassert
+            - llvm-build-11-linux-v4-noassert
       - run:
           name: "Build LLVM"
           command: |
             if [ ! -f llvm-build/lib/liblldELF.a ]
             then
+              # fetch LLVM source
+              rm -rf llvm-project
+              make llvm-source
               # install dependencies
               sudo apt-get install cmake ninja-build
               # hack ninja to use less jobs
@@ -231,9 +244,11 @@ commands:
               chmod +x /go/bin/ninja
               # build!
               make llvm-build
+              find llvm-build -name "*.o" | xargs rm -f
+              rm -f llvm-build/build.ninja
             fi
       - save_cache:
-          key: llvm-build-11-linux-v2-noassert
+          key: llvm-build-11-linux-v4-noassert
           paths:
             llvm-build
       - build-wasi-libc
@@ -287,29 +302,39 @@ commands:
             - go-cache-macos-v2-{{ checksum "go.mod" }}
       - restore_cache:
           keys:
-            - llvm-source-11-macos-v1
+            - llvm-source-11-macos-v4-2
       - run:
           name: "Fetch LLVM source"
-          command: make llvm-source
+          command: |
+            if [ ! -e llvm-project ]
+            then
+              make llvm-source
+              find llvm-project -type f | grep -v '\.\(h\|def\)$' | xargs rm -f
+            fi
       - save_cache:
-          key: llvm-source-11-macos-v1
+          key: llvm-source-11-macos-v4-2
           paths:
             - llvm-project
       - restore_cache:
           keys:
-            - llvm-build-11-macos-v2
+            - llvm-build-11-macos-v4
       - run:
           name: "Build LLVM"
           command: |
             if [ ! -f llvm-build/lib/liblldELF.a ]
             then
+              # fetch LLVM source
+              rm -rf llvm-project
+              make llvm-source
               # install dependencies
               HOMEBREW_NO_AUTO_UPDATE=1 brew install cmake ninja
               # build!
               make llvm-build
+              find llvm-build -name "*.o" | xargs rm -f
+              rm -f llvm-build/build.ninja
             fi
       - save_cache:
-          key: llvm-build-11-macos-v2
+          key: llvm-build-11-macos-v4
           paths:
             llvm-build
       - restore_cache:
@@ -392,10 +417,6 @@ jobs:
 workflows:
   test-all:
     jobs:
-      - test-llvm10-go113
-      - test-llvm10-go114
-      - test-llvm11-go115
-      - test-llvm11-go116
       - build-linux
       - build-macos
       - assert-test-linux
