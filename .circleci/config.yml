@@ -5,7 +5,7 @@ commands:
     steps:
       - run:
           name: "Pull submodules"
-          command: git submodule update --init --depth 1
+          command: git submodule update --init
   apt-dependencies:
     parameters:
       llvm:
