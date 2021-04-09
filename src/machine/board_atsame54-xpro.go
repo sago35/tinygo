@@ -226,9 +226,8 @@ const (
 )
 
 var (
-	// TODO
-	usb_VID uint16 = 0x2886
-	usb_PID uint16 = 0x802D
+	usb_VID uint16 = 0x03EB
+	usb_PID uint16 = 0x2404
 )
 
 // UART on the SAM E54 Xplained Pro
