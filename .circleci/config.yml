@@ -68,7 +68,7 @@ commands:
     steps:
       - restore_cache:
           keys:
-            - llvm-source-11-v4-3
+            - llvm-source-11-v4-6
       - run:
           name: "Fetch LLVM source"
           command: |
@@ -77,9 +77,12 @@ commands:
               make llvm-source
             fi
       - save_cache:
-          key: llvm-source-11-v4-3
+          key: llvm-source-11-v4-6
           paths:
             - llvm-project/clang/lib/Headers
+            - llvm-project/clang/include
+            - llvm-project/lld/include
+            - llvm-project/llvm/include
   build-wasi-libc:
     steps:
       - restore_cache:
@@ -301,7 +304,7 @@ commands:
             - go-cache-macos-v2-{{ checksum "go.mod" }}
       - restore_cache:
           keys:
-            - llvm-source-11-macos-v4-3
+            - llvm-source-11-macos-v4-6
       - run:
           name: "Fetch LLVM source"
           command: |
@@ -310,9 +313,12 @@ commands:
               make llvm-source
             fi
       - save_cache:
-          key: llvm-source-11-macos-v4-3
+          key: llvm-source-11-macos-v4-6
           paths:
             - llvm-project/clang/lib/Headers
+            - llvm-project/clang/include
+            - llvm-project/lld/include
+            - llvm-project/llvm/include
       - restore_cache:
           keys:
             - llvm-build-11-macos-v4
