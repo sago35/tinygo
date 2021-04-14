@@ -161,7 +161,7 @@ commands:
       - llvm-source-linux
       - restore_cache:
           keys:
-            - llvm-build-11-linux-v4-assert
+            - llvm-build-11-linux-v4-6-assert
       - run:
           name: "Build LLVM"
           command: |
@@ -177,13 +177,12 @@ commands:
               chmod +x /go/bin/ninja
               # build!
               make ASSERT=1 llvm-build
-              find llvm-build -name "*.o" | xargs rm -f
-              rm -f llvm-build/build.ninja
             fi
       - save_cache:
-          key: llvm-build-11-linux-v4-assert
+          key: llvm-build-11-linux-v4-6-assert
           paths:
-            llvm-build
+            - llvm-build/bin
+            - llvm-build/lib/*.a
       - run: make ASSERT=1
       - build-wasi-libc
       - run:
@@ -230,7 +229,7 @@ commands:
       - llvm-source-linux
       - restore_cache:
           keys:
-            - llvm-build-11-linux-v4-noassert
+            - llvm-build-11-linux-v4-6-noassert
       - run:
           name: "Build LLVM"
           command: |
@@ -246,13 +245,12 @@ commands:
               chmod +x /go/bin/ninja
               # build!
               make llvm-build
-              find llvm-build -name "*.o" | xargs rm -f
-              rm -f llvm-build/build.ninja
             fi
       - save_cache:
-          key: llvm-build-11-linux-v4-noassert
+          key: llvm-build-11-linux-v4-6-noassert
           paths:
-            llvm-build
+            - llvm-build/bin
+            - llvm-build/lib/*.a
       - build-wasi-libc
       - run:
           name: "Test TinyGo"
@@ -321,7 +319,7 @@ commands:
             - llvm-project/llvm/include
       - restore_cache:
           keys:
-            - llvm-build-11-macos-v4
+            - llvm-build-11-macos-v4-6
       - run:
           name: "Build LLVM"
           command: |
@@ -334,13 +332,12 @@ commands:
               HOMEBREW_NO_AUTO_UPDATE=1 brew install cmake ninja
               # build!
               make llvm-build
-              find llvm-build -name "*.o" | xargs rm -f
-              rm -f llvm-build/build.ninja
             fi
       - save_cache:
-          key: llvm-build-11-macos-v4
+          key: llvm-build-11-macos-v4-6
           paths:
-            llvm-build
+            - llvm-build/bin
+            - llvm-build/lib/*.a
       - restore_cache:
           keys:
             - wasi-libc-sysroot-macos-v3
