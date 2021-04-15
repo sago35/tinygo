@@ -161,7 +161,7 @@ commands:
       - llvm-source-linux
       - restore_cache:
           keys:
-            - llvm-build-11-linux-v4-6-assert
+            - llvm-build-11-linux-v2-assert
       - run:
           name: "Build LLVM"
           command: |
@@ -178,8 +178,9 @@ commands:
               # build!
               make ASSERT=1 llvm-build
             fi
+            find ./lib/* -type d | xargs rm -rf
       - save_cache:
-          key: llvm-build-11-linux-v4-6-assert
+          key: llvm-build-11-linux-v4-7-assert
           paths:
             - llvm-build/bin
             - llvm-build/lib/*.a
@@ -229,7 +230,7 @@ commands:
       - llvm-source-linux
       - restore_cache:
           keys:
-            - llvm-build-11-linux-v4-6-noassert
+            - llvm-build-11-linux-v2-noassert
       - run:
           name: "Build LLVM"
           command: |
@@ -246,8 +247,9 @@ commands:
               # build!
               make llvm-build
             fi
+            find ./lib/* -type d | xargs rm -rf
       - save_cache:
-          key: llvm-build-11-linux-v4-6-noassert
+          key: llvm-build-11-linux-v4-7-noassert
           paths:
             - llvm-build/bin
             - llvm-build/lib/*.a
@@ -319,7 +321,7 @@ commands:
             - llvm-project/llvm/include
       - restore_cache:
           keys:
-            - llvm-build-11-macos-v4-6
+            - llvm-build-11-macos-v2
       - run:
           name: "Build LLVM"
           command: |
@@ -333,8 +335,9 @@ commands:
               # build!
               make llvm-build
             fi
+            find ./lib/* -type d | xargs rm -rf
       - save_cache:
-          key: llvm-build-11-macos-v4-6
+          key: llvm-build-11-macos-v4-7
           paths:
             - llvm-build/bin
             - llvm-build/lib/*.a
