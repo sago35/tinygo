@@ -181,7 +181,7 @@ commands:
             fi
             find llvm-build -name CMakeFiles -prune -exec rm -r '{}' \;
       - save_cache:
-          key: llvm-build-11-linux-v4-7-assert
+          key: llvm-build-11-linux-v4-8-assert
           paths:
             - llvm-build/bin
             - llvm-build/lib/*.a
@@ -251,7 +251,7 @@ commands:
             fi
             find llvm-build -name CMakeFiles -prune -exec rm -r '{}' \;
       - save_cache:
-          key: llvm-build-11-linux-v4-7-noassert
+          key: llvm-build-11-linux-v4-8-noassert
           paths:
             - llvm-build/bin
             - llvm-build/lib/*.a
@@ -340,7 +340,7 @@ commands:
             fi
             find llvm-build -name CMakeFiles -prune -exec rm -r '{}' \;
       - save_cache:
-          key: llvm-build-11-macos-v4-7
+          key: llvm-build-11-macos-v4-8
           paths:
             - llvm-build/bin
             - llvm-build/lib/*.a
