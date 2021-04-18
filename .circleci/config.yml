@@ -179,7 +179,6 @@ commands:
               make ASSERT=1 llvm-build
               find llvm-build -name CMakeFiles -prune -exec rm -r '{}' \;
             fi
-            find llvm-build -name CMakeFiles -prune -exec rm -r '{}' \;
       - save_cache:
           key: llvm-build-11-linux-v4-9-assert
           paths:
@@ -248,7 +247,6 @@ commands:
               make llvm-build
               find llvm-build -name CMakeFiles -prune -exec rm -r '{}' \;
             fi
-            find llvm-build -name CMakeFiles -prune -exec rm -r '{}' \;
       - save_cache:
           key: llvm-build-11-linux-v4-9-noassert
           paths:
@@ -336,7 +334,6 @@ commands:
               make llvm-build
               find llvm-build -name CMakeFiles -prune -exec rm -r '{}' \;
             fi
-            find llvm-build -name CMakeFiles -prune -exec rm -r '{}' \;
       - save_cache:
           key: llvm-build-11-macos-v4-9
           paths:
