@@ -161,7 +161,7 @@ commands:
       - llvm-source-linux
       - restore_cache:
           keys:
-            - llvm-build-11-linux-v2-assert
+            - llvm-build-11-linux-v4-9-assert
       - run:
           name: "Build LLVM"
           command: |
@@ -230,7 +230,7 @@ commands:
       - llvm-source-linux
       - restore_cache:
           keys:
-            - llvm-build-11-linux-v2-noassert
+            - llvm-build-11-linux-v4-9-noassert
       - run:
           name: "Build LLVM"
           command: |
@@ -321,7 +321,7 @@ commands:
             - llvm-project/llvm/include
       - restore_cache:
           keys:
-            - llvm-build-11-macos-v2
+            - llvm-build-11-macos-v4-9
       - run:
           name: "Build LLVM"
           command: |
