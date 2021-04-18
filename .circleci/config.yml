@@ -181,10 +181,9 @@ commands:
             fi
             find llvm-build -name CMakeFiles -prune -exec rm -r '{}' \;
       - save_cache:
-          key: llvm-build-11-linux-v4-8-assert
+          key: llvm-build-11-linux-v4-9-assert
           paths:
-            - llvm-build/bin
-            - llvm-build/lib/*.a
+            - llvm-build
       - run: make ASSERT=1
       - build-wasi-libc
       - run:
@@ -251,10 +250,9 @@ commands:
             fi
             find llvm-build -name CMakeFiles -prune -exec rm -r '{}' \;
       - save_cache:
-          key: llvm-build-11-linux-v4-8-noassert
+          key: llvm-build-11-linux-v4-9-noassert
           paths:
-            - llvm-build/bin
-            - llvm-build/lib/*.a
+            - llvm-build
       - build-wasi-libc
       - run:
           name: "Test TinyGo"
@@ -340,10 +338,9 @@ commands:
             fi
             find llvm-build -name CMakeFiles -prune -exec rm -r '{}' \;
       - save_cache:
-          key: llvm-build-11-macos-v4-8
+          key: llvm-build-11-macos-v4-9
           paths:
-            - llvm-build/bin
-            - llvm-build/lib/*.a
+            - llvm-build
       - restore_cache:
           keys:
             - wasi-libc-sysroot-macos-v3
