@@ -2708,13 +2708,13 @@ type CANConfig struct {
 	Rx        Pin
 }
 
-// go:align 4
+//go:align 4
 var CANRxFifo [2][1024]byte
 
-// go:align 4
+//go:align 4
 var CANTxFifo [2][1024]byte
 
-// go:align 4
+//go:align 4
 var CANEvFifo [2][1024]byte
 
 func (can *CAN) Configure(config CANConfig) error {
