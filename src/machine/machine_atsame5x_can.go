@@ -8,16 +8,22 @@ import (
 	"unsafe"
 )
 
+const (
+	CANRxFifoSize = 16
+	CANTxFifoSize = 16
+	CANEvFifoSize = 16
+)
+
 // Message RAM can only be located in the first 64 KB area of the system RAM.
 
 //go:align 4
-var CANRxFifo [2][(8 + 64) * 16]byte
+var CANRxFifo [2][(8 + 64) * CANRxFifoSize]byte
 
 //go:align 4
-var CANTxFifo [2][(8 + 64) * 16]byte
+var CANTxFifo [2][(8 + 64) * CANTxFifoSize]byte
 
 //go:align 4
-var CANEvFifo [2][(8 + 64) * 16]byte
+var CANEvFifo [2][(8 + 64) * CANEvFifoSize]byte
 
 type CAN struct {
 	Bus     *sam.CAN_Type
@@ -112,11 +118,11 @@ func (can *CAN) Configure(config CANConfig) error {
 	default:
 	}
 
-	can.Bus.RXF0C.Set(sam.CAN_RXF0C_F0OM | 16<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[can.Channel][0])))&0xFFFF)
+	can.Bus.RXF0C.Set(sam.CAN_RXF0C_F0OM | CANRxFifoSize<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[can.Channel][0])))&0xFFFF)
 	can.Bus.RXESC.Set(sam.CAN_RXESC_F0DS_DATA64)
 	can.Bus.TXESC.Set(sam.CAN_TXESC_TBDS_DATA64)
-	can.Bus.TXBC.Set(16<<sam.CAN_TXBC_TFQS_Pos | 0<<sam.CAN_TXBC_NDTB_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[can.Channel][0])))&0xFFFF)
-	can.Bus.TXEFC.Set(2<<sam.CAN_TXEFC_EFS_Pos | uint32(uintptr(unsafe.Pointer(&CANEvFifo[can.Channel][0])))&0xFFFF)
+	can.Bus.TXBC.Set(CANTxFifoSize<<sam.CAN_TXBC_TFQS_Pos | 0<<sam.CAN_TXBC_NDTB_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[can.Channel][0])))&0xFFFF)
+	can.Bus.TXEFC.Set(CANEvFifoSize<<sam.CAN_TXEFC_EFS_Pos | uint32(uintptr(unsafe.Pointer(&CANEvFifo[can.Channel][0])))&0xFFFF)
 
 	can.Bus.TSCC.Set(sam.CAN_TSCC_TSS_INC)
 
@@ -211,9 +217,19 @@ func (can CAN) TxFD(id uint32, dlc byte, data []byte) {
 	can.Bus.TXBAR.SetBits(1 << putIndex)
 }
 
-func (can CAN) Size() int {
+func (can CAN) RxFifoSize() int {
 	sz := (can.Bus.RXF0S.Get() & sam.CAN_RXF0S_F0FL_Msk) >> sam.CAN_RXF0S_F0FL_Pos
 	return int(sz)
+}
+
+func (can CAN) RxFifoIsFull() bool {
+	sz := (can.Bus.RXF0S.Get() & sam.CAN_RXF0S_F0FL_Msk) >> sam.CAN_RXF0S_F0FL_Pos
+	return sz == CANRxFifoSize
+}
+
+func (can CAN) RxFifoIsEmpty() bool {
+	sz := (can.Bus.RXF0S.Get() & sam.CAN_RXF0S_F0FL_Msk) >> sam.CAN_RXF0S_F0FL_Pos
+	return sz == 0
 }
 
 func (can CAN) Rx() (id uint32, dlc byte, data []byte, timestamp uint16) {
