@@ -112,7 +112,7 @@ func (can *CAN) Configure(config CANConfig) error {
 	default:
 	}
 
-	can.Bus.RXF0C.Set(sam.CAN_RXF0C_F0OM | 12<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[can.Channel][0])))&0xFFFF)
+	can.Bus.RXF0C.Set(sam.CAN_RXF0C_F0OM | 16<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[can.Channel][0])))&0xFFFF)
 	can.Bus.RXESC.Set(sam.CAN_RXESC_F0DS_DATA64)
 	can.Bus.TXESC.Set(sam.CAN_TXESC_TBDS_DATA64)
 	can.Bus.TXBC.Set(16<<sam.CAN_TXBC_TFQS_Pos | 0<<sam.CAN_TXBC_NDTB_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[can.Channel][0])))&0xFFFF)
