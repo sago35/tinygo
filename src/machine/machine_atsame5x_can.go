@@ -11,13 +11,13 @@ import (
 // Message RAM can only be located in the first 64 KB area of the system RAM.
 
 //go:align 4
-var CANRxFifo [2][1024]byte
+var CANRxFifo [2][(8 + 64) * 16]byte
 
 //go:align 4
-var CANTxFifo [2][1024]byte
+var CANTxFifo [2][(8 + 64) * 16]byte
 
 //go:align 4
-var CANEvFifo [2][1024]byte
+var CANEvFifo [2][(8 + 64) * 16]byte
 
 type CAN struct {
 	Bus     *sam.CAN_Type
@@ -115,7 +115,7 @@ func (can *CAN) Configure(config CANConfig) error {
 	can.Bus.RXF0C.Set(sam.CAN_RXF0C_F0OM | 12<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[can.Channel][0])))&0xFFFF)
 	can.Bus.RXESC.Set(sam.CAN_RXESC_F0DS_DATA64)
 	can.Bus.TXESC.Set(sam.CAN_TXESC_TBDS_DATA64)
-	can.Bus.TXBC.Set(1<<sam.CAN_TXBC_TFQS_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[can.Channel][0])))&0xFFFF)
+	can.Bus.TXBC.Set(16<<sam.CAN_TXBC_TFQS_Pos | 0<<sam.CAN_TXBC_NDTB_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[can.Channel][0])))&0xFFFF)
 	can.Bus.TXEFC.Set(2<<sam.CAN_TXEFC_EFS_Pos | uint32(uintptr(unsafe.Pointer(&CANEvFifo[can.Channel][0])))&0xFFFF)
 
 	can.Bus.GFC.Set(0<<sam.CAN_GFC_ANFS_Pos | 0<<sam.CAN_GFC_ANFE_Pos)
@@ -143,7 +143,7 @@ func (can *CAN) Configure(config CANConfig) error {
 func (can CAN) Tx(id uint32, dlc byte, data []byte) {
 	putIndex := (can.Bus.TXFQS.Get() & sam.CAN_TXFQS_TFQPI_Msk) >> sam.CAN_TXFQS_TFQPI_Pos
 
-	f := CANTxFifo[can.Channel][putIndex : putIndex+8+64]
+	f := CANTxFifo[can.Channel][putIndex*(8+64) : (putIndex+1)*(8+64)]
 	if true {
 		// standard identifier is stored into ID[28:18]
 		id <<= 18
@@ -164,10 +164,14 @@ func (can CAN) Tx(id uint32, dlc byte, data []byte) {
 	can.Bus.TXBAR.SetBits(1 << putIndex)
 }
 
+func (can CAN) TxFifoIsFull() bool {
+	return (can.Bus.TXFQS.Get() & sam.CAN_TXFQS_TFQF_Msk) == sam.CAN_TXFQS_TFQF_Msk
+}
+
 func (can CAN) TxFD(id uint32, dlc byte, data []byte) {
 	putIndex := (can.Bus.TXFQS.Get() & sam.CAN_TXFQS_TFQPI_Msk) >> sam.CAN_TXFQS_TFQPI_Pos
 
-	f := CANTxFifo[can.Channel][putIndex : putIndex+8+64]
+	f := CANTxFifo[can.Channel][putIndex*(8+64) : (putIndex+1)*(8+64)]
 	if true {
 		// standard identifier is stored into ID[28:18]
 		id <<= 18
