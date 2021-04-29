@@ -216,7 +216,7 @@ func (can CAN) Size() int {
 	return int(sz)
 }
 
-func (can CAN) Rx() (id uint32, dlc byte, data []byte) {
+func (can CAN) Rx() (id uint32, dlc byte, data []byte, timestamp uint16) {
 	idx := (can.Bus.RXF0S.Get() & sam.CAN_RXF0S_F0GI_Msk) >> sam.CAN_RXF0S_F0GI_Pos
 	f := CANRxFifo[can.Channel][idx*(8+64):]
 
@@ -249,7 +249,9 @@ func (can CAN) Rx() (id uint32, dlc byte, data []byte) {
 	}
 	data = data[:dlc]
 
+	timestamp = (uint16(f[4]) << 8) + uint16(f[5])
+
 	can.Bus.RXF0A.ReplaceBits(idx, sam.CAN_RXF0A_F0AI_Msk, sam.CAN_RXF0A_F0AI_Pos)
 
-	return id, dlc, data
+	return id, dlc, data, timestamp
 }
