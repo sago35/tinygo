@@ -118,6 +118,8 @@ func (can *CAN) Configure(config CANConfig) error {
 	can.Bus.TXBC.Set(16<<sam.CAN_TXBC_TFQS_Pos | 0<<sam.CAN_TXBC_NDTB_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[can.Channel][0])))&0xFFFF)
 	can.Bus.TXEFC.Set(2<<sam.CAN_TXEFC_EFS_Pos | uint32(uintptr(unsafe.Pointer(&CANEvFifo[can.Channel][0])))&0xFFFF)
 
+	can.Bus.TSCC.Set(sam.CAN_TSCC_TSS_INC)
+
 	can.Bus.GFC.Set(0<<sam.CAN_GFC_ANFS_Pos | 0<<sam.CAN_GFC_ANFE_Pos)
 
 	can.Bus.SIDFC.Set(0 << sam.CAN_SIDFC_LSS_Pos)
