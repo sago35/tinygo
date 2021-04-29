@@ -18,16 +18,18 @@ func main() {
 
 	can1 := machine.CAN{Bus: sam.CAN1}
 	can1.Configure(machine.CANConfig{
-		Frequency: 500000,
-		Rx:        machine.CAN1_RX,
-		Tx:        machine.CAN1_TX,
+		TransferRate:   machine.CANTransferRate500kbps,
+		TransferRateFD: machine.CANTransferRate1000kbps,
+		Rx:             machine.CAN1_RX,
+		Tx:             machine.CAN1_TX,
 	})
 
 	can0 := machine.CAN{Bus: sam.CAN0}
 	can0.Configure(machine.CANConfig{
-		Frequency: 500000,
-		Rx:        machine.CAN0_RX,
-		Tx:        machine.CAN0_TX,
+		TransferRate:   machine.CANTransferRate500kbps,
+		TransferRateFD: machine.CANTransferRate1000kbps,
+		Rx:             machine.CAN0_RX,
+		Tx:             machine.CAN0_TX,
 	})
 
 	for {

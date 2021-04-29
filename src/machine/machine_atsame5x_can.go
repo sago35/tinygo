@@ -4,6 +4,7 @@ package machine
 
 import (
 	"device/sam"
+	"errors"
 	"unsafe"
 )
 
@@ -23,11 +24,28 @@ type CAN struct {
 	Channel byte
 }
 
+type CANTransferRate uint32
+
+const (
+	CANTransferRate125kbps  CANTransferRate = 125000
+	CANTransferRate250kbps  CANTransferRate = 250000
+	CANTransferRate500kbps  CANTransferRate = 500000
+	CANTransferRate1000kbps CANTransferRate = 1000000
+	CANTransferRate2000kbps CANTransferRate = 2000000
+	CANTransferRate4000kbps CANTransferRate = 4000000
+)
+
 type CANConfig struct {
-	Frequency uint32
-	Tx        Pin
-	Rx        Pin
+	TransferRate   CANTransferRate
+	TransferRateFD CANTransferRate
+	Tx             Pin
+	Rx             Pin
 }
+
+var (
+	errCANInvalidTransferRate   = errors.New("CAN: invalid TransferRate")
+	errCANInvalidTransferRateFD = errors.New("CAN: invalid TransferRateFD")
+)
 
 func (can *CAN) Configure(config CANConfig) error {
 	can.Bus.CCCR.SetBits(sam.CAN_CCCR_INIT)
@@ -40,31 +58,72 @@ func (can *CAN) Configure(config CANConfig) error {
 		can.Channel = 1
 	}
 
-	{
-		can.Bus.CCCR.SetBits(sam.CAN_CCCR_BRSE | sam.CAN_CCCR_FDOE)
-		can.Bus.MRCFG.Set(sam.CAN_MRCFG_QOS_MEDIUM)
-		// base clock == 48 MHz
-		// 500kbps
-		can.Bus.NBTP.Set(10<<sam.CAN_NBTP_NTSEG1_Pos | (6-1)<<sam.CAN_NBTP_NBRP_Pos |
-			3<<sam.CAN_NBTP_NTSEG2_Pos | 3<<sam.CAN_NBTP_NSJW_Pos)
-
-		// 1000kbps
-		can.Bus.DBTP.Set((3-1)<<sam.CAN_DBTP_DBRP_Pos | 10<<sam.CAN_DBTP_DTSEG1_Pos |
-			3<<sam.CAN_DBTP_DTSEG2_Pos | 3<<sam.CAN_DBTP_DSJW_Pos)
-
-		can.Bus.RXF0C.Set(sam.CAN_RXF0C_F0OM | 12<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[can.Channel][0])))&0xFFFF)
-		can.Bus.RXESC.Set(sam.CAN_RXESC_F0DS_DATA64)
-		can.Bus.TXESC.Set(sam.CAN_TXESC_TBDS_DATA64)
-		can.Bus.TXBC.Set(1<<sam.CAN_TXBC_TFQS_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[can.Channel][0])))&0xFFFF)
-		can.Bus.TXEFC.Set(2<<sam.CAN_TXEFC_EFS_Pos | uint32(uintptr(unsafe.Pointer(&CANEvFifo[can.Channel][0])))&0xFFFF)
-
-		can.Bus.GFC.Set(0<<sam.CAN_GFC_ANFS_Pos | 0<<sam.CAN_GFC_ANFE_Pos)
-
-		can.Bus.SIDFC.Set(0 << sam.CAN_SIDFC_LSS_Pos)
-		can.Bus.XIDFC.Set(0 << sam.CAN_SIDFC_LSS_Pos)
-
-		can.Bus.XIDAM.Set(0x1FFFFFFF << sam.CAN_XIDAM_EIDM_Pos)
+	can.Bus.CCCR.SetBits(sam.CAN_CCCR_BRSE | sam.CAN_CCCR_FDOE)
+	can.Bus.MRCFG.Set(sam.CAN_MRCFG_QOS_MEDIUM)
+	// base clock == 48 MHz
+	if config.TransferRate == 0 {
+		config.TransferRate = CANTransferRate500kbps
 	}
+	brp := uint32(6)
+	switch config.TransferRate {
+	case CANTransferRate125kbps:
+		brp = 32
+	case CANTransferRate250kbps:
+		brp = 16
+	case CANTransferRate500kbps:
+		brp = 8
+	case CANTransferRate1000kbps:
+		brp = 4
+	default:
+		return errCANInvalidTransferRate
+	}
+	can.Bus.NBTP.Set(8<<sam.CAN_NBTP_NTSEG1_Pos | (brp-1)<<sam.CAN_NBTP_NBRP_Pos |
+		1<<sam.CAN_NBTP_NTSEG2_Pos | 3<<sam.CAN_NBTP_NSJW_Pos)
+
+	if config.TransferRateFD == 0 {
+		config.TransferRateFD = CANTransferRate1000kbps
+	}
+	if config.TransferRateFD < config.TransferRate {
+		return errCANInvalidTransferRateFD
+	}
+
+	brp = uint32(2)
+	switch config.TransferRateFD {
+	case CANTransferRate125kbps:
+		brp = 32
+	case CANTransferRate250kbps:
+		brp = 16
+	case CANTransferRate500kbps:
+		brp = 8
+	case CANTransferRate1000kbps:
+		brp = 4
+	case CANTransferRate2000kbps:
+		brp = 2
+	case CANTransferRate4000kbps:
+		brp = 1
+	default:
+		return errCANInvalidTransferRateFD
+	}
+	can.Bus.DBTP.Set((brp-1)<<sam.CAN_DBTP_DBRP_Pos | 8<<sam.CAN_DBTP_DTSEG1_Pos |
+		1<<sam.CAN_DBTP_DTSEG2_Pos | 3<<sam.CAN_DBTP_DSJW_Pos)
+
+	switch config.TransferRateFD {
+	case CANTransferRate1000kbps:
+	default:
+	}
+
+	can.Bus.RXF0C.Set(sam.CAN_RXF0C_F0OM | 12<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[can.Channel][0])))&0xFFFF)
+	can.Bus.RXESC.Set(sam.CAN_RXESC_F0DS_DATA64)
+	can.Bus.TXESC.Set(sam.CAN_TXESC_TBDS_DATA64)
+	can.Bus.TXBC.Set(1<<sam.CAN_TXBC_TFQS_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[can.Channel][0])))&0xFFFF)
+	can.Bus.TXEFC.Set(2<<sam.CAN_TXEFC_EFS_Pos | uint32(uintptr(unsafe.Pointer(&CANEvFifo[can.Channel][0])))&0xFFFF)
+
+	can.Bus.GFC.Set(0<<sam.CAN_GFC_ANFS_Pos | 0<<sam.CAN_GFC_ANFE_Pos)
+
+	can.Bus.SIDFC.Set(0 << sam.CAN_SIDFC_LSS_Pos)
+	can.Bus.XIDFC.Set(0 << sam.CAN_SIDFC_LSS_Pos)
+
+	can.Bus.XIDAM.Set(0x1FFFFFFF << sam.CAN_XIDAM_EIDM_Pos)
 
 	can.Bus.CCCR.ClearBits(sam.CAN_CCCR_CCE)
 	can.Bus.CCCR.ClearBits(sam.CAN_CCCR_INIT)
