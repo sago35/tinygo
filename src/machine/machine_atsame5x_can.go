@@ -166,7 +166,7 @@ func (can CAN) Tx(id uint32, dlc byte, data []byte) {
 	f[1] = byte(id >> 8)
 	f[0] = byte(0)
 	f[7] = 0x00
-	f[6] = dlc
+	f[6] = dlc | 0x80
 	f[5] = 0x00 // reserved
 	f[4] = 0x00 // reserved
 	can.Bus.TXBAR.SetBits(1 << putIndex)
@@ -211,7 +211,7 @@ func (can CAN) TxFD(id uint32, dlc byte, data []byte) {
 	f[1] = byte(id >> 8)
 	f[0] = byte(0)
 	f[7] = 0x00
-	f[6] = dlc | 0x20 | 0x10
+	f[6] = dlc | 0x80 | 0x20 | 0x10
 	f[5] = 0x00 // reserved
 	f[4] = 0x00 // reserved
 	can.Bus.TXBAR.SetBits(1 << putIndex)
