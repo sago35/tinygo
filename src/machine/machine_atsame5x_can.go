@@ -5,6 +5,7 @@ package machine
 import (
 	"device/sam"
 	"errors"
+	"runtime/interrupt"
 	"unsafe"
 )
 
@@ -133,6 +134,8 @@ func (can *CAN) Configure(config CANConfig) error {
 
 	can.Bus.XIDAM.Set(0x1FFFFFFF << sam.CAN_XIDAM_EIDM_Pos)
 
+	can.Bus.ILE.SetBits(sam.CAN_ILE_EINT0)
+
 	can.Bus.CCCR.ClearBits(sam.CAN_CCCR_CCE)
 	can.Bus.CCCR.ClearBits(sam.CAN_CCCR_INIT)
 	for can.Bus.CCCR.HasBits(sam.CAN_CCCR_INIT) {
@@ -144,6 +147,60 @@ func (can *CAN) Configure(config CANConfig) error {
 	}
 	config.Rx.Configure(PinConfig{Mode: mode})
 	config.Tx.Configure(PinConfig{Mode: mode})
+
+	return nil
+}
+
+var (
+	canInstances [2]CAN
+	canCallbacks [2][32]func(CAN)
+)
+
+func (can CAN) SetInterrupt(ie uint32, callback func(CAN)) error {
+	if callback == nil {
+		// Disable this CAN interrupt
+		can.Bus.IE.ClearBits(ie)
+		return nil
+	}
+	can.Bus.IE.SetBits(ie)
+
+	idx := 0
+	switch can.Bus {
+	case sam.CAN0:
+		canInstances[0] = can
+	case sam.CAN1:
+		canInstances[1] = can
+		idx = 1
+	}
+
+	for i := uint(0); i < 32; i++ {
+		if ie&(1<<i) != 0 {
+			canCallbacks[idx][i] = callback
+		}
+	}
+
+	switch can.Bus {
+	case sam.CAN0:
+		interrupt.New(sam.IRQ_CAN0, func(interrupt.Interrupt) {
+			ir := sam.CAN0.IR.Get()
+			sam.CAN0.IR.Set(ir) // clear interrupt
+			for i := uint(0); i < 32; i++ {
+				if ir&(1<<i) != 0 && canCallbacks[0][i] != nil {
+					canCallbacks[0][i](canInstances[0])
+				}
+			}
+		}).Enable()
+	case sam.CAN1:
+		interrupt.New(sam.IRQ_CAN1, func(interrupt.Interrupt) {
+			ir := sam.CAN1.IR.Get()
+			sam.CAN1.IR.Set(ir) // clear interrupt
+			for i := uint(0); i < 32; i++ {
+				if ir&(1<<i) != 0 && canCallbacks[1][i] != nil {
+					canCallbacks[1][i](canInstances[1])
+				}
+			}
+		}).Enable()
+	}
 
 	return nil
 }
