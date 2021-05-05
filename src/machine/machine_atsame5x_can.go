@@ -16,6 +16,7 @@ const (
 )
 
 // Message RAM can only be located in the first 64 KB area of the system RAM.
+// TODO: when the go:section pragma is merged, add the section configuration
 
 //go:align 4
 var CANRxFifo [2][(8 + 64) * CANRxFifoSize]byte
@@ -199,73 +200,80 @@ func (can CAN) SetInterrupt(ie uint32, callback func(CAN)) error {
 	return nil
 }
 
-func (can CAN) Tx(id uint32, dlc byte, data []byte) {
-	putIndex := (can.Bus.TXFQS.Get() & sam.CAN_TXFQS_TFQPI_Msk) >> sam.CAN_TXFQS_TFQPI_Pos
-
-	f := CANTxFifo[can.Channel][putIndex*(8+64) : (putIndex+1)*(8+64)]
-	if true {
-		// standard identifier is stored into ID[28:18]
-		id <<= 18
-	}
-
-	for i := byte(0); i < dlc; i++ {
-		f[8+i] = data[i]
-	}
-
-	f[3] = byte(id >> 24)
-	f[2] = byte(id >> 16)
-	f[1] = byte(id >> 8)
-	f[0] = byte(0)
-	f[7] = 0x00
-	f[6] = dlc | 0x80
-	f[5] = 0x00 // reserved
-	f[4] = 0x00 // reserved
-	can.Bus.TXBAR.SetBits(1 << putIndex)
-}
-
 func (can CAN) TxFifoIsFull() bool {
 	return (can.Bus.TXFQS.Get() & sam.CAN_TXFQS_TFQF_Msk) == sam.CAN_TXFQS_TFQF_Msk
 }
 
-func (can CAN) TxFD(id uint32, dlc byte, data []byte) {
+func (can CAN) TxRaw(e *CANTxBufferElement) {
 	putIndex := (can.Bus.TXFQS.Get() & sam.CAN_TXFQS_TFQPI_Msk) >> sam.CAN_TXFQS_TFQPI_Pos
 
 	f := CANTxFifo[can.Channel][putIndex*(8+64) : (putIndex+1)*(8+64)]
-	if true {
+	id := e.ID
+	if !e.XTD {
 		// standard identifier is stored into ID[28:18]
 		id <<= 18
 	}
 
-	for i := byte(0); i < dlc; i++ {
-		f[8+i] = data[i]
-	}
-
-	if dlc <= 0x08 {
-	} else if dlc <= 12 {
-		dlc = 0x09
-	} else if dlc <= 16 {
-		dlc = 0x0A
-	} else if dlc <= 20 {
-		dlc = 0x0B
-	} else if dlc <= 24 {
-		dlc = 0x0C
-	} else if dlc <= 32 {
-		dlc = 0x0D
-	} else if dlc <= 48 {
-		dlc = 0x0E
-	} else if dlc <= 64 {
-		dlc = 0x0F
-	}
-
 	f[3] = byte(id >> 24)
+	if e.ESI {
+		f[3] |= 0x80
+	}
+	if e.XTD {
+		f[3] |= 0x40
+	}
+	if e.RTR {
+		f[3] |= 0x20
+	}
 	f[2] = byte(id >> 16)
 	f[1] = byte(id >> 8)
 	f[0] = byte(0)
-	f[7] = 0x00
-	f[6] = dlc | 0x80 | 0x20 | 0x10
+	f[7] = e.MM
+	f[6] = e.DLC
+	if e.EFC {
+		f[6] |= 0x80
+	}
+	if e.FDF {
+		f[6] |= 0x20
+	}
+	if e.BRS {
+		f[6] |= 0x10
+	}
 	f[5] = 0x00 // reserved
 	f[4] = 0x00 // reserved
+
+	length := CANDlcToLength(e.DLC, e.FDF)
+	for i := byte(0); i < length; i++ {
+		f[8+i] = e.DB[i]
+	}
+
 	can.Bus.TXBAR.SetBits(1 << putIndex)
+}
+
+func (can CAN) Tx(id uint32, length byte, data []byte, isFD, isExtendedID bool) {
+	dlc := CANLengthToDlc(length, true)
+
+	e := CANTxBufferElement{
+		ESI: false,
+		XTD: isExtendedID,
+		RTR: false,
+		ID:  id,
+		MM:  0x00,
+		EFC: true,
+		FDF: isFD,
+		BRS: isFD,
+		DLC: dlc,
+	}
+
+	if !isFD {
+		if length > 8 {
+			length = 8
+		}
+	}
+	for i := byte(0); i < length; i++ {
+		e.DB[i] = data[i]
+	}
+
+	can.TxRaw(&e)
 }
 
 func (can CAN) RxFifoSize() int {
@@ -283,42 +291,136 @@ func (can CAN) RxFifoIsEmpty() bool {
 	return sz == 0
 }
 
-func (can CAN) Rx() (id uint32, dlc byte, data []byte, timestamp uint16) {
+func CANDlcToLength(dlc byte, isFD bool) byte {
+	length := dlc
+	if dlc == 0x09 {
+		length = 12
+	} else if dlc == 0x0A {
+		length = 16
+	} else if dlc == 0x0B {
+		length = 20
+	} else if dlc == 0x0C {
+		length = 24
+	} else if dlc == 0x0D {
+		length = 32
+	} else if dlc == 0x0E {
+		length = 48
+	} else if dlc == 0x0F {
+		length = 64
+	}
+	return length
+
+}
+
+func CANLengthToDlc(length byte, isFD bool) byte {
+	dlc := length
+	if length <= 0x08 {
+	} else if length <= 12 {
+		dlc = 0x09
+	} else if length <= 16 {
+		dlc = 0x0A
+	} else if length <= 20 {
+		dlc = 0x0B
+	} else if length <= 24 {
+		dlc = 0x0C
+	} else if length <= 32 {
+		dlc = 0x0D
+	} else if length <= 48 {
+		dlc = 0x0E
+	} else if length <= 64 {
+		dlc = 0x0F
+	}
+	return dlc
+}
+
+func (can CAN) RxRaw(e *CANRxBufferElement) {
 	idx := (can.Bus.RXF0S.Get() & sam.CAN_RXF0S_F0GI_Msk) >> sam.CAN_RXF0S_F0GI_Pos
 	f := CANRxFifo[can.Channel][idx*(8+64):]
 
-	id = ((uint32(f[3]) << 24) + (uint32(f[2]) << 16) + (uint32(f[1]) << 8) + uint32(f[0])) & 0x1FFFFFFF
+	e.ESI = false
+	if (f[3] & 0x80) != 0x00 {
+		e.ESI = true
+	}
+
+	e.XTD = false
+	if (f[3] & 0x40) != 0x00 {
+		e.XTD = true
+	}
+
+	e.RTR = false
+	if (f[3] & 0x20) != 0x00 {
+		e.RTR = true
+	}
+
+	id := ((uint32(f[3]) << 24) + (uint32(f[2]) << 16) + (uint32(f[1]) << 8) + uint32(f[0])) & 0x1FFFFFFF
 	if (f[3] & 0x20) == 0 {
 		id >>= 18
 		id &= 0x000007FF
 	}
-	dlc = byte(idx)
+	e.ID = id
 
-	dlc = f[6] & 0x0F
-	if dlc == 0x09 {
-		dlc = 12
-	} else if dlc == 0x0A {
-		dlc = 16
-	} else if dlc == 0x0B {
-		dlc = 20
-	} else if dlc == 0x0C {
-		dlc = 24
-	} else if dlc == 0x0D {
-		dlc = 32
-	} else if dlc == 0x0E {
-		dlc = 48
-	} else if dlc == 0x0F {
-		dlc = 64
+	e.ANMF = false
+	if (f[7] & 0x80) != 0x00 {
+		e.ANMF = true
 	}
 
-	for i := byte(0); i < dlc; i++ {
-		data = append(data, f[i+8])
-	}
-	data = data[:dlc]
+	e.FIDX = f[7] & 0x7F
 
-	timestamp = (uint16(f[4]) << 8) + uint16(f[5])
+	e.FDF = false
+	if (f[6] & 0x20) != 0x00 {
+		e.FDF = true
+	}
+
+	e.BRS = false
+	if (f[6] & 0x10) != 0x00 {
+		e.BRS = true
+	}
+
+	e.DLC = f[6] & 0x0F
+
+	e.RXTS = (uint16(f[5]) << 8) + uint16(f[4])
+
+	for i := byte(0); i < CANDlcToLength(e.DLC, e.FDF); i++ {
+		e.DB[i] = f[i+8]
+	}
 
 	can.Bus.RXF0A.ReplaceBits(idx, sam.CAN_RXF0A_F0AI_Msk, sam.CAN_RXF0A_F0AI_Pos)
+}
 
-	return id, dlc, data, timestamp
+func (can CAN) Rx() (id uint32, dlc byte, data []byte, isFd, isExtendedID bool) {
+	e := CANRxBufferElement{}
+	can.RxRaw(&e)
+	length := CANDlcToLength(e.DLC, e.FDF)
+	return e.ID, length, e.DB[:length], e.FDF, e.XTD
+}
+
+type CANTxBufferElement struct {
+	ESI bool
+	XTD bool
+	RTR bool
+	ID  uint32
+	MM  uint8
+	EFC bool
+	FDF bool
+	BRS bool
+	DLC uint8
+	DB  [64]uint8
+}
+
+type CANRxBufferElement struct {
+	ESI  bool
+	XTD  bool
+	RTR  bool
+	ID   uint32
+	ANMF bool
+	FIDX uint8
+	FDF  bool
+	BRS  bool
+	DLC  uint8
+	RXTS uint16
+	DB   [64]uint8
+}
+
+func (e CANRxBufferElement) Data() []byte {
+	return e.DB[:CANDlcToLength(e.DLC, e.FDF)]
 }

@@ -38,8 +38,9 @@ func main() {
 		Tx:             machine.CAN1_TX,
 	})
 	can1.SetInterrupt(sam.CAN_IE_RF0NE, func(machine.CAN) {
-		id, dlc, data, _ := can1.Rx()
-		m := canMsg{ch: 1, id: id, dlc: dlc, data: data}
+		rxMsg := machine.CANRxBufferElement{}
+		can1.RxRaw(&rxMsg)
+		m := canMsg{ch: 1, id: rxMsg.ID, dlc: rxMsg.DLC, data: rxMsg.Data()}
 		select {
 		case ch <- m:
 		}
@@ -53,17 +54,18 @@ func main() {
 		Tx:             machine.CAN0_TX,
 	})
 	can0.SetInterrupt(sam.CAN_IE_RF0NE, func(machine.CAN) {
-		id, dlc, data, _ := can0.Rx()
-		m := canMsg{ch: 2, id: id, dlc: dlc, data: data}
+		rxMsg := machine.CANRxBufferElement{}
+		can0.RxRaw(&rxMsg)
+		m := canMsg{ch: 2, id: rxMsg.ID, dlc: rxMsg.DLC, data: rxMsg.Data()}
 		select {
 		case ch <- m:
 		}
 	})
 
 	for {
-		can0.Tx(0x123, 8, []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF})
+		can0.Tx(0x123, 8, []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF}, false, false)
 		time.Sleep(time.Millisecond * 500)
-		can1.Tx(0x456, 3, []byte{0xAA, 0xBB, 0xCC})
+		can1.Tx(0x456, 3, []byte{0xAA, 0xBB, 0xCC}, false, false)
 		time.Sleep(time.Millisecond * 1000)
 	}
 }
