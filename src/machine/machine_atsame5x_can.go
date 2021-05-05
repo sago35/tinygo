@@ -24,7 +24,7 @@ var CANRxFifo [2][(8 + 64) * CANRxFifoSize]byte
 var CANTxFifo [2][(8 + 64) * CANTxFifoSize]byte
 
 //go:align 4
-var CANEvFifo [2][(8 + 64) * CANEvFifoSize]byte
+var CANEvFifo [2][(8) * CANEvFifoSize]byte
 
 type CAN struct {
 	Bus     *sam.CAN_Type
