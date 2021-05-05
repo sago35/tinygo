@@ -34,6 +34,7 @@ type CAN struct {
 
 type CANTransferRate uint32
 
+// CAN transfer rates for CANConfig
 const (
 	CANTransferRate125kbps  CANTransferRate = 125000
 	CANTransferRate250kbps  CANTransferRate = 250000
@@ -43,6 +44,8 @@ const (
 	CANTransferRate4000kbps CANTransferRate = 4000000
 )
 
+// CANConfig holds CAN configuration parameters. Tx and Rx need to be
+// specified with some pins.
 type CANConfig struct {
 	TransferRate   CANTransferRate
 	TransferRateFD CANTransferRate
@@ -55,6 +58,7 @@ var (
 	errCANInvalidTransferRateFD = errors.New("CAN: invalid TransferRateFD")
 )
 
+// Configure this CAN peripheral with the given configuration.
 func (can *CAN) Configure(config CANConfig) error {
 	can.Bus.CCCR.SetBits(sam.CAN_CCCR_INIT)
 	for !can.Bus.CCCR.HasBits(sam.CAN_CCCR_INIT) {
@@ -137,20 +141,29 @@ func (can *CAN) Configure(config CANConfig) error {
 	}
 
 	mode := PinCAN0
-	if can.Bus == sam.CAN1 {
+	if can.Channel == 1 {
 		mode = PinCAN1
 	}
+
 	config.Rx.Configure(PinConfig{Mode: mode})
 	config.Tx.Configure(PinConfig{Mode: mode})
 
 	return nil
 }
 
+// Callbacks to be called for CAN.SetInterrupt(). Wre're using the magic
+// constant 2 and 32 here beacuse th SAM E51/E54 has 2 CAN and 32 interrupt
+// sources.
 var (
 	canInstances [2]CAN
 	canCallbacks [2][32]func(CAN)
 )
 
+// SetInterrupt sets an interrupt to be executed when a particular CAN state.
+//
+// This call will replace a previously set callback. You can pass a nil func
+// to unset the CAN interrupt. If you do so, the change parameter is ignored
+// and can be set to any value (such as 0).
 func (can CAN) SetInterrupt(ie uint32, callback func(CAN)) error {
 	if callback == nil {
 		// Disable this CAN interrupt
@@ -200,10 +213,12 @@ func (can CAN) SetInterrupt(ie uint32, callback func(CAN)) error {
 	return nil
 }
 
+// TxFifoIsFull returns whether TxFifo is full or not.
 func (can CAN) TxFifoIsFull() bool {
 	return (can.Bus.TXFQS.Get() & sam.CAN_TXFQS_TFQF_Msk) == sam.CAN_TXFQS_TFQF_Msk
 }
 
+// TxRaw sends a CAN Frame according to CANTxBufferElement.
 func (can CAN) TxRaw(e *CANTxBufferElement) {
 	putIndex := (can.Bus.TXFQS.Get() & sam.CAN_TXFQS_TFQPI_Msk) >> sam.CAN_TXFQS_TFQPI_Pos
 
@@ -249,6 +264,8 @@ func (can CAN) TxRaw(e *CANTxBufferElement) {
 	can.Bus.TXBAR.SetBits(1 << putIndex)
 }
 
+// The Tx transmits CAN frames. It is easier to use than TxRaw, but not as
+// flexible.
 func (can CAN) Tx(id uint32, length byte, data []byte, isFD, isExtendedID bool) {
 	dlc := CANLengthToDlc(length, true)
 
@@ -276,63 +293,25 @@ func (can CAN) Tx(id uint32, length byte, data []byte, isFD, isExtendedID bool) 
 	can.TxRaw(&e)
 }
 
+// RxFifoSize returns the number of CAN Frames currently stored in the RXFifo.
 func (can CAN) RxFifoSize() int {
 	sz := (can.Bus.RXF0S.Get() & sam.CAN_RXF0S_F0FL_Msk) >> sam.CAN_RXF0S_F0FL_Pos
 	return int(sz)
 }
 
+// RxFifoIsFull returns whether RxFifo is full or not.
 func (can CAN) RxFifoIsFull() bool {
 	sz := (can.Bus.RXF0S.Get() & sam.CAN_RXF0S_F0FL_Msk) >> sam.CAN_RXF0S_F0FL_Pos
 	return sz == CANRxFifoSize
 }
 
+// RxFifoIsEmpty returns whether RxFifo is empty or not.
 func (can CAN) RxFifoIsEmpty() bool {
 	sz := (can.Bus.RXF0S.Get() & sam.CAN_RXF0S_F0FL_Msk) >> sam.CAN_RXF0S_F0FL_Pos
 	return sz == 0
 }
 
-func CANDlcToLength(dlc byte, isFD bool) byte {
-	length := dlc
-	if dlc == 0x09 {
-		length = 12
-	} else if dlc == 0x0A {
-		length = 16
-	} else if dlc == 0x0B {
-		length = 20
-	} else if dlc == 0x0C {
-		length = 24
-	} else if dlc == 0x0D {
-		length = 32
-	} else if dlc == 0x0E {
-		length = 48
-	} else if dlc == 0x0F {
-		length = 64
-	}
-	return length
-
-}
-
-func CANLengthToDlc(length byte, isFD bool) byte {
-	dlc := length
-	if length <= 0x08 {
-	} else if length <= 12 {
-		dlc = 0x09
-	} else if length <= 16 {
-		dlc = 0x0A
-	} else if length <= 20 {
-		dlc = 0x0B
-	} else if length <= 24 {
-		dlc = 0x0C
-	} else if length <= 32 {
-		dlc = 0x0D
-	} else if length <= 48 {
-		dlc = 0x0E
-	} else if length <= 64 {
-		dlc = 0x0F
-	}
-	return dlc
-}
-
+// RxRaw copies the received CAN frame to CANRxBufferElement.
 func (can CAN) RxRaw(e *CANRxBufferElement) {
 	idx := (can.Bus.RXF0S.Get() & sam.CAN_RXF0S_F0GI_Msk) >> sam.CAN_RXF0S_F0GI_Pos
 	f := CANRxFifo[can.Channel][idx*(8+64):]
@@ -387,6 +366,8 @@ func (can CAN) RxRaw(e *CANRxBufferElement) {
 	can.Bus.RXF0A.ReplaceBits(idx, sam.CAN_RXF0A_F0AI_Msk, sam.CAN_RXF0A_F0AI_Pos)
 }
 
+// Rx receives a CAN frame. It is easier to use than RxRaw, but not as
+// flexible.
 func (can CAN) Rx() (id uint32, dlc byte, data []byte, isFd, isExtendedID bool) {
 	e := CANRxBufferElement{}
 	can.RxRaw(&e)
@@ -394,6 +375,8 @@ func (can CAN) Rx() (id uint32, dlc byte, data []byte, isFd, isExtendedID bool) 
 	return e.ID, length, e.DB[:length], e.FDF, e.XTD
 }
 
+// CANTxBufferElement is a struct that corresponds to the same5x' Tx Buffer
+// Element.
 type CANTxBufferElement struct {
 	ESI bool
 	XTD bool
@@ -407,6 +390,8 @@ type CANTxBufferElement struct {
 	DB  [64]uint8
 }
 
+// CANRxBufferElement is a struct that corresponds to the same5x Rx Buffer and
+// FIFO Element.
 type CANRxBufferElement struct {
 	ESI  bool
 	XTD  bool
@@ -421,6 +406,51 @@ type CANRxBufferElement struct {
 	DB   [64]uint8
 }
 
+// Data returns the received data as a slice of the size according to dlc.
 func (e CANRxBufferElement) Data() []byte {
 	return e.DB[:CANDlcToLength(e.DLC, e.FDF)]
+}
+
+// CANDlcToLength() converts a DLC value to its actual length.
+func CANDlcToLength(dlc byte, isFD bool) byte {
+	length := dlc
+	if dlc == 0x09 {
+		length = 12
+	} else if dlc == 0x0A {
+		length = 16
+	} else if dlc == 0x0B {
+		length = 20
+	} else if dlc == 0x0C {
+		length = 24
+	} else if dlc == 0x0D {
+		length = 32
+	} else if dlc == 0x0E {
+		length = 48
+	} else if dlc == 0x0F {
+		length = 64
+	}
+	return length
+
+}
+
+// CANLengthToDlc() converts its actual length to a DLC value.
+func CANLengthToDlc(length byte, isFD bool) byte {
+	dlc := length
+	if length <= 0x08 {
+	} else if length <= 12 {
+		dlc = 0x09
+	} else if length <= 16 {
+		dlc = 0x0A
+	} else if length <= 20 {
+		dlc = 0x0B
+	} else if length <= 24 {
+		dlc = 0x0C
+	} else if length <= 32 {
+		dlc = 0x0D
+	} else if length <= 48 {
+		dlc = 0x0E
+	} else if length <= 64 {
+		dlc = 0x0F
+	}
+	return dlc
 }
