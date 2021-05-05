@@ -93,7 +93,6 @@ func (can *CAN) Configure(config CANConfig) error {
 	if config.TransferRateFD < config.TransferRate {
 		return errCANInvalidTransferRateFD
 	}
-
 	brp = uint32(2)
 	switch config.TransferRateFD {
 	case CANTransferRate125kbps:
@@ -113,11 +112,6 @@ func (can *CAN) Configure(config CANConfig) error {
 	}
 	can.Bus.DBTP.Set((brp-1)<<sam.CAN_DBTP_DBRP_Pos | 8<<sam.CAN_DBTP_DTSEG1_Pos |
 		1<<sam.CAN_DBTP_DTSEG2_Pos | 3<<sam.CAN_DBTP_DSJW_Pos)
-
-	switch config.TransferRateFD {
-	case CANTransferRate1000kbps:
-	default:
-	}
 
 	can.Bus.RXF0C.Set(sam.CAN_RXF0C_F0OM | CANRxFifoSize<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[can.Channel][0])))&0xFFFF)
 	can.Bus.RXESC.Set(sam.CAN_RXESC_F0DS_DATA64)
