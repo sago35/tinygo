@@ -11,4 +11,9 @@ func init() {
 	boost_en := machine.BOOST_EN
 	boost_en.Configure(machine.PinConfig{Mode: machine.PinOutput})
 	boost_en.High()
+
+	// Activate CAN Transceiver
+	stb := machine.CAN1_STANDBY
+	stb.Configure(machine.PinConfig{Mode: machine.PinOutput})
+	stb.Low()
 }
