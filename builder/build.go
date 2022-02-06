@@ -190,6 +190,10 @@ func Build(pkgName, outpath string, config *compileopts.Config, action func(Buil
 	packageActionIDs := make(map[string]string)
 	for _, pkg := range lprogram.Sorted() {
 		pkg := pkg // necessary to avoid a race condition
+		fmt.Printf("pkg : %s\n", pkg.Name)
+		for _, p := range pkg.GoFiles {
+			fmt.Printf("  %s\n", p)
+		}
 
 		var undefinedGlobals []string
 		for name := range config.Options.GlobalValues[pkg.Pkg.Path()] {
