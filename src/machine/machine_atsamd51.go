@@ -2113,8 +2113,8 @@ const (
 var (
 	usbEndpointDescriptors [8]usbDeviceDescriptor
 
-	udd_ep_in_cache_buffer  [7][128]uint8
-	udd_ep_out_cache_buffer [7][128]uint8
+	udd_ep_in_cache_buffer  [7][128 * 2]uint8
+	udd_ep_out_cache_buffer [7][128 * 2]uint8
 
 	isEndpointHalt        = false
 	isRemoteWakeUpEnabled = false
@@ -2246,6 +2246,9 @@ func handleUSBIRQ(interrupt.Interrupt) {
 			hidCallback()
 		}
 		// if you want to blink LED showing traffic, this would be the place...
+		sam.PORT.GROUP[0].OUTTGL.Set(1 << 17) // wioterminal.BCM02.Toggle()
+	} else {
+		sam.PORT.GROUP[0].OUTTGL.Set(1 << 16) // wioterminal.BCM03.Toggle()
 	}
 
 	// Endpoint 0 Setup interrupt
@@ -2312,7 +2315,21 @@ func handleUSBIRQ(interrupt.Interrupt) {
 			case usb_HID_ENDPOINT_IN:
 				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
 				waitHidTxc = false
+			case usb_MIDI_ENDPOINT_IN:
+				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
+
+				//data := []byte{0x90, 0x60, 0x7F, 0x80, 0x60, 0x00}
+				//sendUSBPacket(4, data, 0)
+				//// clear transfer complete flag
+				//setEPINTFLAG(4, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
+
+				//// send data by setting bank ready
+				//setEPSTATUSSET(4, sam.USB_DEVICE_ENDPOINT_EPSTATUSSET_BK1RDY)
 			}
+		}
+		if (epFlags & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_RXSTP) > 0 {
+			//setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_RXSTP)
+			sam.PORT.GROUP[1].OUTTGL.Set(1 << 14) // wioterminal.BCM04.Toggle()
 		}
 	}
 }

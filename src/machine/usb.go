@@ -104,10 +104,12 @@ const (
 	usb_CDC_FIRST_ENDPOINT = 1
 
 	// Endpoint
-	usb_CDC_ENDPOINT_ACM = 1
-	usb_CDC_ENDPOINT_OUT = 2
-	usb_CDC_ENDPOINT_IN  = 3
-	usb_HID_ENDPOINT_IN  = 4
+	usb_CDC_ENDPOINT_ACM  = 1
+	usb_CDC_ENDPOINT_OUT  = 2
+	usb_CDC_ENDPOINT_IN   = 3
+	usb_HID_ENDPOINT_IN   = 4
+	usb_MIDI_ENDPOINT_OUT = 4
+	usb_MIDI_ENDPOINT_IN  = 5
 
 	// bmRequestType
 	usb_REQUEST_HOSTTODEVICE = 0x00
@@ -336,3 +338,14 @@ func EnableHID(callback func()) {
 
 // hidCallback is a variable that holds the callback when using HID.
 var hidCallback func()
+
+// EnableMIDI enables MIDI. This function must be executed from the init().
+func EnableMIDI(callback func()) {
+	usbDescriptor = descriptorCDCMIDI
+	endPoints = []uint32{usb_ENDPOINT_TYPE_CONTROL,
+		(usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn),
+		(usb_ENDPOINT_TYPE_BULK | usbEndpointOut),
+		(usb_ENDPOINT_TYPE_BULK | usbEndpointIn),
+		(usb_ENDPOINT_TYPE_BULK | usbEndpointOut),
+		(usb_ENDPOINT_TYPE_BULK | usbEndpointIn)}
+}
