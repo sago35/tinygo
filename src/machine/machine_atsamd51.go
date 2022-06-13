@@ -1987,8 +1987,9 @@ type USBCDC struct {
 
 var (
 	// USB is a USB CDC interface.
-	USB        = &USBCDC{Buffer: NewRingBuffer()}
-	waitHidTxc bool
+	USB         = &USBCDC{Buffer: NewRingBuffer()}
+	waitHidTxc  bool
+	waitMidiTxc bool
 )
 
 const (
@@ -2221,6 +2222,7 @@ func handlePadCalibration() {
 }
 
 func handleUSBIRQ(interrupt.Interrupt) {
+
 	// reset all interrupt flags
 	flags := sam.USB_DEVICE.INTFLAG.Get()
 	sam.USB_DEVICE.INTFLAG.Set(flags)
@@ -2244,6 +2246,9 @@ func handleUSBIRQ(interrupt.Interrupt) {
 		USB.Flush()
 		if hidCallback != nil && !waitHidTxc {
 			hidCallback()
+		}
+		if midiCallback != nil && !waitMidiTxc {
+			midiCallback()
 		}
 		// if you want to blink LED showing traffic, this would be the place...
 		sam.PORT.GROUP[0].OUTTGL.Set(1 << 17) // wioterminal.BCM02.Toggle()
@@ -2317,6 +2322,7 @@ func handleUSBIRQ(interrupt.Interrupt) {
 				waitHidTxc = false
 			case usb_MIDI_ENDPOINT_IN:
 				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
+				waitMidiTxc = false
 
 				//data := []byte{0x90, 0x60, 0x7F, 0x80, 0x60, 0x00}
 				//sendUSBPacket(4, data, 0)
@@ -2504,6 +2510,10 @@ func handleStandardSetup(setup usbSetup) bool {
 				setEPINTENSET(usb_HID_ENDPOINT_IN, sam.USB_DEVICE_ENDPOINT_EPINTENSET_TRCPT1)
 			}
 
+			if midiCallback != nil {
+				setEPINTENSET(usb_MIDI_ENDPOINT_IN, sam.USB_DEVICE_ENDPOINT_EPINTENSET_TRCPT1)
+			}
+
 			sendZlp()
 			return true
 		} else {
@@ -2596,6 +2606,25 @@ func SendUSBHIDPacket(ep uint32, data []byte) bool {
 	setEPSTATUSSET(ep, sam.USB_DEVICE_ENDPOINT_EPSTATUSSET_BK1RDY)
 
 	waitHidTxc = true
+
+	return true
+}
+
+// SendUSBMIDIPacket sends a packet for USBHID (interrupt / in).
+func SendUSBMIDIPacket(ep uint32, data []byte) bool {
+	if waitMidiTxc {
+		return false
+	}
+
+	sendUSBPacket(ep, data, 0)
+
+	// clear transfer complete flag
+	setEPINTFLAG(ep, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
+
+	// send data by setting bank ready
+	setEPSTATUSSET(ep, sam.USB_DEVICE_ENDPOINT_EPSTATUSSET_BK1RDY)
+
+	waitMidiTxc = true
 
 	return true
 }
