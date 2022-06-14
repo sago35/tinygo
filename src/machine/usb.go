@@ -343,6 +343,9 @@ var hidCallback func()
 // midiCallback is a variable that holds the callback when using HID.
 var midiCallback func()
 
+// midiCallback is a variable that holds the callback when using HID.
+var midiCallbackRx func([]byte)
+
 // EnableMIDI enables MIDI. This function must be executed from the init().
 func EnableMIDI(callback func()) {
 	usbDescriptor = descriptorCDCMIDI
@@ -353,4 +356,10 @@ func EnableMIDI(callback func()) {
 		(usb_ENDPOINT_TYPE_DISABLE),
 		(usb_ENDPOINT_TYPE_BULK | usbEndpointOut),
 		(usb_ENDPOINT_TYPE_BULK | usbEndpointIn)}
+
+	midiCallback = callback
+}
+
+func SetCallbackMIDI(callbackRx func([]byte)) {
+	midiCallbackRx = callbackRx
 }

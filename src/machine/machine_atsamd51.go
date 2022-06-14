@@ -2250,9 +2250,6 @@ func handleUSBIRQ(interrupt.Interrupt) {
 			midiCallback()
 		}
 		// if you want to blink LED showing traffic, this would be the place...
-		sam.PORT.GROUP[0].OUTTGL.Set(1 << 17) // wioterminal.BCM02.Toggle()
-	} else {
-		sam.PORT.GROUP[0].OUTTGL.Set(1 << 16) // wioterminal.BCM03.Toggle()
 	}
 
 	// Endpoint 0 Setup interrupt
@@ -2322,12 +2319,12 @@ func handleUSBIRQ(interrupt.Interrupt) {
 			case usb_MIDI_ENDPOINT_OUT:
 				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0)
 				buf := handleEndpointRx(i)
-				SendUSBMIDIPacket(usb_MIDI_ENDPOINT_IN, buf)
-				sam.PORT.GROUP[1].OUTTGL.Set(1 << 14) // wioterminal.BCM04.Toggle()
+				if midiCallbackRx != nil {
+					midiCallbackRx(buf)
+				}
 			case usb_MIDI_ENDPOINT_IN:
 				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
 				waitMidiTxc = false
-				sam.PORT.GROUP[0].OUTTGL.Set(1 << 2) // wioterminal.BCM17.Toggle()
 			}
 		}
 	}
