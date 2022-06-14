@@ -2317,12 +2317,18 @@ func handleUSBIRQ(interrupt.Interrupt) {
 				if i == usb_CDC_ENDPOINT_IN {
 					USB.waitTxc = false
 				}
-			case usb_HID_ENDPOINT_IN:
+			case usb_HID_ENDPOINT_IN + 1000:
 				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
 				waitHidTxc = false
+			case usb_MIDI_ENDPOINT_OUT:
+				setEPSTATUSCLR(i, sam.USB_DEVICE_ENDPOINT_EPSTATUSCLR_BK0RDY)
+				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0)
+				SendUSBMIDIPacket(usb_MIDI_ENDPOINT_IN, []byte{0x08, 0x80, 0x40, 0x40})
+				sam.PORT.GROUP[1].OUTTGL.Set(1 << 14) // wioterminal.BCM04.Toggle()
 			case usb_MIDI_ENDPOINT_IN:
 				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
 				waitMidiTxc = false
+				sam.PORT.GROUP[0].OUTTGL.Set(1 << 2) // wioterminal.BCM17.Toggle()
 
 				//data := []byte{0x90, 0x60, 0x7F, 0x80, 0x60, 0x00}
 				//sendUSBPacket(4, data, 0)
@@ -2334,7 +2340,10 @@ func handleUSBIRQ(interrupt.Interrupt) {
 			}
 		}
 		if (epFlags & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_RXSTP) > 0 {
+			// ack
 			//setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_RXSTP)
+			//if i == usb_MIDI_ENDPOINT_OUT {
+			//}
 			sam.PORT.GROUP[1].OUTTGL.Set(1 << 14) // wioterminal.BCM04.Toggle()
 		}
 	}
@@ -2511,7 +2520,7 @@ func handleStandardSetup(setup usbSetup) bool {
 			}
 
 			if midiCallback != nil {
-				setEPINTENSET(usb_MIDI_ENDPOINT_IN, sam.USB_DEVICE_ENDPOINT_EPINTENSET_TRCPT1)
+				setEPINTENSET(usb_MIDI_ENDPOINT_IN, sam.USB_DEVICE_ENDPOINT_EPINTENSET_TRCPT0)
 			}
 
 			sendZlp()
