@@ -52,6 +52,7 @@ const (
 	usb_IPRODUCT      = 2
 	usb_ISERIAL       = 3
 
+	usb_ENDPOINT_TYPE_DISABLE     = 0xFF
 	usb_ENDPOINT_TYPE_CONTROL     = 0x00
 	usb_ENDPOINT_TYPE_ISOCHRONOUS = 0x01
 	usb_ENDPOINT_TYPE_BULK        = 0x02
@@ -108,8 +109,8 @@ const (
 	usb_CDC_ENDPOINT_OUT  = 2
 	usb_CDC_ENDPOINT_IN   = 3
 	usb_HID_ENDPOINT_IN   = 4
-	usb_MIDI_ENDPOINT_OUT = 4
-	usb_MIDI_ENDPOINT_IN  = 5
+	usb_MIDI_ENDPOINT_OUT = 5
+	usb_MIDI_ENDPOINT_IN  = 6
 
 	// bmRequestType
 	usb_REQUEST_HOSTTODEVICE = 0x00
@@ -349,6 +350,7 @@ func EnableMIDI(callback func()) {
 		(usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn),
 		(usb_ENDPOINT_TYPE_BULK | usbEndpointOut),
 		(usb_ENDPOINT_TYPE_BULK | usbEndpointIn),
+		(usb_ENDPOINT_TYPE_DISABLE),
 		(usb_ENDPOINT_TYPE_BULK | usbEndpointOut),
 		(usb_ENDPOINT_TYPE_BULK | usbEndpointIn)}
 }
