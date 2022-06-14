@@ -2321,9 +2321,9 @@ func handleUSBIRQ(interrupt.Interrupt) {
 				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
 				waitHidTxc = false
 			case usb_MIDI_ENDPOINT_OUT:
-				setEPSTATUSCLR(i, sam.USB_DEVICE_ENDPOINT_EPSTATUSCLR_BK0RDY)
+				buf := handleEndpointRx(i)
 				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0)
-				SendUSBMIDIPacket(usb_MIDI_ENDPOINT_IN, []byte{0x08, 0x80, 0x40, 0x40})
+				SendUSBMIDIPacket(usb_MIDI_ENDPOINT_IN, buf)
 				sam.PORT.GROUP[1].OUTTGL.Set(1 << 14) // wioterminal.BCM04.Toggle()
 			case usb_MIDI_ENDPOINT_IN:
 				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
@@ -2718,6 +2718,27 @@ func handleEndpoint(ep uint32) {
 
 	// set ready for next data
 	setEPSTATUSCLR(ep, sam.USB_DEVICE_ENDPOINT_EPSTATUSCLR_BK0RDY)
+}
+
+func handleEndpointRx(ep uint32) []byte {
+	// get data
+	count := int((usbEndpointDescriptors[ep].DeviceDescBank[0].PCKSIZE.Get() >>
+		usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos) & usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask)
+
+	// move to ring buffer
+	buf := make([]byte, count)
+	copy(buf, udd_ep_out_cache_buffer[ep][:])
+
+	// set byte count to zero
+	usbEndpointDescriptors[ep].DeviceDescBank[0].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask << usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos)
+
+	// set multi packet size to 64
+	usbEndpointDescriptors[ep].DeviceDescBank[0].PCKSIZE.SetBits(64 << usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Pos)
+
+	// set ready for next data
+	setEPSTATUSCLR(ep, sam.USB_DEVICE_ENDPOINT_EPSTATUSCLR_BK0RDY)
+
+	return buf[:count]
 }
 
 func sendZlp() {
