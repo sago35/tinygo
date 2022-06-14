@@ -12,13 +12,13 @@ const (
 var Midi *midi
 
 type midi struct {
-	buf *RingBuffer
+	buf            *RingBuffer
+	callbackFuncRx func([]byte)
 }
 
 func init() {
 	if Midi == nil {
 		Midi = newMidi()
-		machine.EnableMIDI(Midi.Callback)
 	}
 }
 
@@ -28,22 +28,41 @@ func New() *midi {
 }
 
 func newMidi() *midi {
-	return &midi{
+	m := &midi{
 		buf: NewRingBuffer(),
 	}
+	machine.EnableMIDI(m.Callback)
+	machine.SetCallbackMIDI(m.CallbackRx)
+	return m
 }
 
 func (m *midi) SetCallback(callbackRx func([]byte)) {
-	machine.SetCallbackMIDI(callbackRx)
+	m.callbackFuncRx = callbackRx
 }
 
-// SendUSBPacket sends a HIDPacket.
-func (m *midi) SendUSBPacket(b []byte) {
+func (m *midi) Write(b []byte) (n int, err error) {
+	i := 0
+	for i = 0; i < len(b); i += 4 {
+		m.buf.Put(b[i : i+4])
+	}
+	return i, nil
+}
+
+// sendUSBPacket sends a MIDIPacket.
+func (m *midi) sendUSBPacket(b []byte) {
 	machine.SendUSBMIDIPacket(midiEndpointIn, b)
 }
 
+// from BulkIn
 func (m *midi) Callback() {
 	if b, ok := m.buf.Get(); ok {
-		m.SendUSBPacket(b)
+		m.sendUSBPacket(b)
+	}
+}
+
+// from BulkOut
+func (m *midi) CallbackRx(b []byte) {
+	if m.callbackFuncRx != nil {
+		m.callbackFuncRx(b)
 	}
 }
