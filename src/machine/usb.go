@@ -347,7 +347,7 @@ var midiCallback func()
 var midiCallbackRx func([]byte)
 
 // EnableMIDI enables MIDI. This function must be executed from the init().
-func EnableMIDI(callback func()) {
+func EnableMIDI(callback func(), callbackRx func([]byte)) {
 	usbDescriptor = descriptorCDCMIDI
 	endPoints = []uint32{usb_ENDPOINT_TYPE_CONTROL,
 		(usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn),
@@ -358,8 +358,5 @@ func EnableMIDI(callback func()) {
 		(usb_ENDPOINT_TYPE_BULK | usbEndpointIn)}
 
 	midiCallback = callback
-}
-
-func SetCallbackMIDI(callbackRx func([]byte)) {
 	midiCallbackRx = callbackRx
 }

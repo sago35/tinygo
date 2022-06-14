@@ -31,8 +31,7 @@ func newMidi() *midi {
 	m := &midi{
 		buf: NewRingBuffer(),
 	}
-	machine.EnableMIDI(m.Callback)
-	machine.SetCallbackMIDI(m.CallbackRx)
+	machine.EnableMIDI(m.Callback, m.CallbackRx)
 	return m
 }
 
