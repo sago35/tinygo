@@ -2122,7 +2122,11 @@ var (
 	endPoints             = []uint32{usb_ENDPOINT_TYPE_CONTROL,
 		(usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn),
 		(usb_ENDPOINT_TYPE_BULK | usbEndpointOut),
-		(usb_ENDPOINT_TYPE_BULK | usbEndpointIn)}
+		(usb_ENDPOINT_TYPE_BULK | usbEndpointIn),
+		(usb_ENDPOINT_TYPE_DISABLE), // for HID (Interrupt In)
+		(usb_ENDPOINT_TYPE_DISABLE), // for MIDI (Bulk Out)
+		(usb_ENDPOINT_TYPE_DISABLE), // for MIDI (Bulk In)
+	}
 
 	usbConfiguration uint8
 	usbSetInterface  uint8

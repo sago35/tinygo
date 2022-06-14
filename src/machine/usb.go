@@ -328,11 +328,7 @@ func sendDescriptor(setup usbSetup) {
 // EnableHID enables HID. This function must be executed from the init().
 func EnableHID(callback func()) {
 	usbDescriptor = descriptorCDCHID
-	endPoints = []uint32{usb_ENDPOINT_TYPE_CONTROL,
-		(usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn),
-		(usb_ENDPOINT_TYPE_BULK | usbEndpointOut),
-		(usb_ENDPOINT_TYPE_BULK | usbEndpointIn),
-		(usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn)}
+	endPoints[usb_HID_ENDPOINT_IN] = (usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn)
 
 	hidCallback = callback
 }
@@ -349,13 +345,8 @@ var midiCallbackRx func([]byte)
 // EnableMIDI enables MIDI. This function must be executed from the init().
 func EnableMIDI(callback func(), callbackRx func([]byte)) {
 	usbDescriptor = descriptorCDCMIDI
-	endPoints = []uint32{usb_ENDPOINT_TYPE_CONTROL,
-		(usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn),
-		(usb_ENDPOINT_TYPE_BULK | usbEndpointOut),
-		(usb_ENDPOINT_TYPE_BULK | usbEndpointIn),
-		(usb_ENDPOINT_TYPE_DISABLE),
-		(usb_ENDPOINT_TYPE_BULK | usbEndpointOut),
-		(usb_ENDPOINT_TYPE_BULK | usbEndpointIn)}
+	endPoints[usb_MIDI_ENDPOINT_OUT] = (usb_ENDPOINT_TYPE_BULK | usbEndpointOut)
+	endPoints[usb_MIDI_ENDPOINT_IN] = (usb_ENDPOINT_TYPE_BULK | usbEndpointIn)
 
 	midiCallback = callback
 	midiCallbackRx = callbackRx
