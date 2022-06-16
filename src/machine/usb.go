@@ -156,35 +156,9 @@ const (
 )
 
 var (
-	waitTxc = []bool{
-		usb_CONTROL_ENDPOINT:  false,
-		usb_CDC_ENDPOINT_ACM:  false,
-		usb_CDC_ENDPOINT_OUT:  false,
-		usb_CDC_ENDPOINT_IN:   false,
-		usb_HID_ENDPOINT_IN:   false,
-		usb_MIDI_ENDPOINT_OUT: false,
-		usb_MIDI_ENDPOINT_IN:  false,
-	}
-
-	handleEndpointTx2 = []func(){
-		usb_CONTROL_ENDPOINT:  nil,
-		usb_CDC_ENDPOINT_ACM:  nil,
-		usb_CDC_ENDPOINT_OUT:  nil,
-		usb_CDC_ENDPOINT_IN:   USB.Flush,
-		usb_HID_ENDPOINT_IN:   nil,
-		usb_MIDI_ENDPOINT_OUT: nil,
-		usb_MIDI_ENDPOINT_IN:  nil,
-	}
-
-	handleEndpointRx2 = []func([]byte){
-		usb_CONTROL_ENDPOINT:  nil,
-		usb_CDC_ENDPOINT_ACM:  nil,
-		usb_CDC_ENDPOINT_OUT:  cdcCallbackRx,
-		usb_CDC_ENDPOINT_IN:   nil,
-		usb_HID_ENDPOINT_IN:   nil,
-		usb_MIDI_ENDPOINT_OUT: nil,
-		usb_MIDI_ENDPOINT_IN:  nil,
-	}
+	waitTxc           [8]bool
+	handleEndpointTx2 [8]func()
+	handleEndpointRx2 [8]func([]byte)
 
 	endPoints = []uint32{
 		usb_CONTROL_ENDPOINT:  usb_ENDPOINT_TYPE_CONTROL,
@@ -358,6 +332,15 @@ func sendDescriptor(setup USBSetup) {
 	// do not know how to handle this message, so return zero
 	sendZlp()
 	return
+}
+
+func EnableCDC(callback func(), callbackRx func([]byte)) {
+	usbDescriptor = descriptorCDC
+	endPoints[usb_CDC_ENDPOINT_ACM] = (usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn)
+	endPoints[usb_CDC_ENDPOINT_OUT] = (usb_ENDPOINT_TYPE_BULK | usbEndpointOut)
+	endPoints[usb_CDC_ENDPOINT_IN] = (usb_ENDPOINT_TYPE_BULK | usbEndpointIn)
+	handleEndpointRx2[usb_CDC_ENDPOINT_OUT] = cdcCallbackRx
+	handleEndpointTx2[usb_CDC_ENDPOINT_IN] = USB.Flush
 }
 
 // EnableHID enables HID. This function must be executed from the init().
