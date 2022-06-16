@@ -2490,25 +2490,15 @@ func handleStandardSetup(setup USBSetup) bool {
 		if setup.BmRequestType&usb_REQUEST_RECIPIENT == usb_REQUEST_DEVICE {
 			for i := 1; i < len(endPoints); i++ {
 				initEndpoint(uint32(i), endPoints[i])
+
+				if (endPoints[i] & usbEndpointIn) > 0 {
+					setEPINTENSET(uint32(i), sam.USB_DEVICE_ENDPOINT_EPINTENSET_TRCPT1)
+				} else {
+					setEPINTENSET(uint32(i), sam.USB_DEVICE_ENDPOINT_EPINTENSET_TRCPT0)
+				}
 			}
 
 			usbConfiguration = setup.WValueL
-
-			// Enable interrupt for CDC control messages from host (OUT packet)
-			setEPINTENSET(usb_CDC_ENDPOINT_ACM, sam.USB_DEVICE_ENDPOINT_EPINTENSET_TRCPT1)
-
-			// Enable interrupt for CDC data messages from host
-			setEPINTENSET(usb_CDC_ENDPOINT_OUT, sam.USB_DEVICE_ENDPOINT_EPINTENSET_TRCPT0)
-
-			// Enable interrupt for HID messages from host
-			if hidCallback != nil {
-				setEPINTENSET(usb_HID_ENDPOINT_IN, sam.USB_DEVICE_ENDPOINT_EPINTENSET_TRCPT1)
-			}
-
-			if midiCallback != nil {
-				setEPINTENSET(usb_MIDI_ENDPOINT_OUT, sam.USB_DEVICE_ENDPOINT_EPINTENSET_TRCPT0)
-				setEPINTENSET(usb_MIDI_ENDPOINT_IN, sam.USB_DEVICE_ENDPOINT_EPINTENSET_TRCPT1)
-			}
 
 			sendZlp()
 			return true
