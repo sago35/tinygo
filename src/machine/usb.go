@@ -170,7 +170,7 @@ var (
 		usb_CONTROL_ENDPOINT:  nil,
 		usb_CDC_ENDPOINT_ACM:  nil,
 		usb_CDC_ENDPOINT_OUT:  nil,
-		usb_CDC_ENDPOINT_IN:   USB.Flush2,
+		usb_CDC_ENDPOINT_IN:   USB.Flush,
 		usb_HID_ENDPOINT_IN:   nil,
 		usb_MIDI_ENDPOINT_OUT: nil,
 		usb_MIDI_ENDPOINT_IN:  nil,
@@ -287,14 +287,6 @@ func (usbcdc *USBCDC) Read(data []byte) (n int, err error) {
 	}
 
 	return size, nil
-}
-
-// Write data to the USBCDC.
-func (usbcdc *USBCDC) Write(data []byte) (n int, err error) {
-	for _, v := range data {
-		usbcdc.WriteByte(v)
-	}
-	return len(data), nil
 }
 
 // ReadByte reads a single byte from the RX buffer.
