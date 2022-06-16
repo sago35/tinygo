@@ -50,7 +50,7 @@ func (m *midi) Write(b []byte) (n int, err error) {
 
 // sendUSBPacket sends a MIDIPacket.
 func (m *midi) sendUSBPacket(b []byte) {
-	machine.SendUSBMIDIPacket(midiEndpointIn, b)
+	machine.SendUSBInPacket(midiEndpointIn, b)
 }
 
 // from BulkIn

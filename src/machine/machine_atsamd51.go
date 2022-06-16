@@ -2126,6 +2126,7 @@ var (
 	usbLineInfo      = cdcLineInfo{115200, 0x00, 0x00, 0x08, 0x00}
 )
 
+// USBCDC のコンフィグではなく USB Device のコンフィグ (samd51 依存)
 // Configure the USB CDC interface. The config is here for compatibility with the UART interface.
 func (usbcdc *USBCDC) Configure(config UARTConfig) {
 	// reset USB interface
@@ -2170,6 +2171,7 @@ func (usbcdc *USBCDC) Configure(config UARTConfig) {
 	usbcdc.configured = true
 }
 
+// USBCDC のコンフィグではなく USB Device のコンフィグ (依存無し)
 // Configured returns whether usbcdc is configured or not.
 func (usbcdc *USBCDC) Configured() bool {
 	return usbcdc.configured
@@ -2571,21 +2573,10 @@ func cdcSetup(setup USBSetup) bool {
 	return false
 }
 
-// SendUSBHIDPacket sends a packet for USBHID (interrupt / in).
-func SendUSBHIDPacket(ep uint32, data []byte) bool {
-	sendUSBPacket(ep, data, 0)
+// SendUSBInPacket sends a packet for USBHID (interrupt in / bulk in).
+func SendUSBInPacket(ep uint32, data []byte) bool {
+	sam.PORT.GROUP[0].OUTTGL.Set(1 << 2) // wioterminal.BCM17.Toggle()
 
-	// clear transfer complete flag
-	setEPINTFLAG(ep, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
-
-	// send data by setting bank ready
-	setEPSTATUSSET(ep, sam.USB_DEVICE_ENDPOINT_EPSTATUSSET_BK1RDY)
-
-	return true
-}
-
-// SendUSBMIDIPacket sends a packet for USBHID (interrupt / in).
-func SendUSBMIDIPacket(ep uint32, data []byte) bool {
 	sendUSBPacket(ep, data, 0)
 
 	// clear transfer complete flag

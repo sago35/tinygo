@@ -47,5 +47,5 @@ func callback() {
 
 // SendUSBPacket sends a HIDPacket.
 func SendUSBPacket(b []byte) {
-	machine.SendUSBHIDPacket(hidEndpoint, b)
+	machine.SendUSBInPacket(hidEndpoint, b)
 }
