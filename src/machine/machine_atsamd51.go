@@ -1979,7 +1979,6 @@ func (tcc *TCC) Set(channel uint8, value uint32) {
 type USBCDC struct {
 	Buffer            *RingBuffer
 	TxIdx             volatile.Register8
-	waitTxc           bool
 	waitTxcRetryCount uint8
 	sent              bool
 	configured        bool
@@ -1987,9 +1986,7 @@ type USBCDC struct {
 
 var (
 	// USB is a USB CDC interface.
-	USB         = &USBCDC{Buffer: NewRingBuffer()}
-	waitHidTxc  bool
-	waitMidiTxc bool
+	USB = &USBCDC{Buffer: NewRingBuffer()}
 )
 
 const (
@@ -2008,12 +2005,12 @@ func (usbcdc *USBCDC) Flush() error {
 		bk := idx & usbcdcTxBankMask
 		if 0 < sz {
 
-			if usbcdc.waitTxc {
+			if waitTxc[usb_CDC_ENDPOINT_IN] {
 				// waiting for the next flush(), because the transmission is not complete
 				usbcdc.waitTxcRetryCount++
 				return nil
 			}
-			usbcdc.waitTxc = true
+			waitTxc[usb_CDC_ENDPOINT_IN] = true
 			usbcdc.waitTxcRetryCount = 0
 
 			// set the data
@@ -2063,7 +2060,7 @@ func (usbcdc *USBCDC) WriteByte(c byte) error {
 				break
 			} else if usbcdcTxMaxRetriesAllowed < usbcdc.waitTxcRetryCount {
 				mask := interrupt.Disable()
-				usbcdc.waitTxc = false
+				waitTxc[usb_CDC_ENDPOINT_IN] = false
 				usbcdc.waitTxcRetryCount = 0
 				usbcdc.TxIdx.Set(0)
 				usbLineInfo.lineState = 0
@@ -2072,11 +2069,11 @@ func (usbcdc *USBCDC) WriteByte(c byte) error {
 			} else {
 				mask := interrupt.Disable()
 				if usbcdc.sent {
-					if usbcdc.waitTxc {
+					if waitTxc[usb_CDC_ENDPOINT_IN] {
 						if (getEPINTFLAG(usb_CDC_ENDPOINT_IN) & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1) != 0 {
 							setEPSTATUSCLR(usb_CDC_ENDPOINT_IN, sam.USB_DEVICE_ENDPOINT_EPSTATUSCLR_BK1RDY)
 							setEPINTFLAG(usb_CDC_ENDPOINT_IN, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
-							usbcdc.waitTxc = false
+							waitTxc[usb_CDC_ENDPOINT_IN] = false
 							usbcdc.Flush()
 						}
 					} else {
@@ -2119,15 +2116,6 @@ var (
 
 	isEndpointHalt        = false
 	isRemoteWakeUpEnabled = false
-	endPoints             = []uint32{
-		usb_CONTROL_ENDPOINT:  usb_ENDPOINT_TYPE_CONTROL,
-		usb_CDC_ENDPOINT_ACM:  (usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn),
-		usb_CDC_ENDPOINT_OUT:  (usb_ENDPOINT_TYPE_BULK | usbEndpointOut),
-		usb_CDC_ENDPOINT_IN:   (usb_ENDPOINT_TYPE_BULK | usbEndpointIn),
-		usb_HID_ENDPOINT_IN:   (usb_ENDPOINT_TYPE_DISABLE), // Interrupt In
-		usb_MIDI_ENDPOINT_OUT: (usb_ENDPOINT_TYPE_DISABLE), // Bulk Out
-		usb_MIDI_ENDPOINT_IN:  (usb_ENDPOINT_TYPE_DISABLE), // Bulk In
-	}
 
 	usbConfiguration uint8
 	usbSetInterface  uint8
@@ -2248,10 +2236,10 @@ func handleUSBIRQ(interrupt.Interrupt) {
 	// Start of frame
 	if (flags & sam.USB_DEVICE_INTFLAG_SOF) > 0 {
 		USB.Flush()
-		if hidCallback != nil && !waitHidTxc {
+		if hidCallback != nil && !waitTxc[usb_HID_ENDPOINT_IN] {
 			hidCallback()
 		}
-		if midiCallback != nil && !waitMidiTxc {
+		if midiCallback != nil && !waitTxc[usb_MIDI_ENDPOINT_IN] {
 			midiCallback()
 		}
 		// if you want to blink LED showing traffic, this would be the place...
@@ -2308,29 +2296,22 @@ func handleUSBIRQ(interrupt.Interrupt) {
 		if (epFlags&sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0) > 0 ||
 			(epFlags&sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1) > 0 {
 			if (endPoints[i] & usbEndpointIn) > 0 {
-				switch i {
-				case usb_CDC_ENDPOINT_IN:
-					USB.waitTxc = false
-				case usb_CDC_ENDPOINT_ACM:
-				case usb_HID_ENDPOINT_IN:
-					waitHidTxc = false
-				case usb_MIDI_ENDPOINT_IN:
-					waitMidiTxc = false
-				}
+				waitTxc[i] = false
 				setEPSTATUSCLR(i, sam.USB_DEVICE_ENDPOINT_EPSTATUSCLR_BK1RDY)
 			} else {
-				switch i {
-				case usb_CDC_ENDPOINT_OUT:
-					handleEndpoint(i)
-				case usb_MIDI_ENDPOINT_OUT:
-					buf := handleEndpointRx(i)
-					if midiCallbackRx != nil {
-						midiCallbackRx(buf)
-					}
+				buf := handleEndpointRx(i)
+				if handleEndpointRx2[i] != nil {
+					handleEndpointRx2[i](buf)
 				}
 			}
 			setEPINTFLAG(i, epFlags)
 		}
+	}
+}
+
+func cdcCallbackRx(b []byte) {
+	for i := range b {
+		USB.Receive(b[i])
 	}
 }
 
@@ -2578,7 +2559,7 @@ func cdcSetup(setup USBSetup) bool {
 
 // SendUSBHIDPacket sends a packet for USBHID (interrupt / in).
 func SendUSBHIDPacket(ep uint32, data []byte) bool {
-	if waitHidTxc {
+	if waitTxc[usb_HID_ENDPOINT_IN] {
 		return false
 	}
 
@@ -2590,14 +2571,14 @@ func SendUSBHIDPacket(ep uint32, data []byte) bool {
 	// send data by setting bank ready
 	setEPSTATUSSET(ep, sam.USB_DEVICE_ENDPOINT_EPSTATUSSET_BK1RDY)
 
-	waitHidTxc = true
+	waitTxc[usb_HID_ENDPOINT_IN] = true
 
 	return true
 }
 
 // SendUSBMIDIPacket sends a packet for USBHID (interrupt / in).
 func SendUSBMIDIPacket(ep uint32, data []byte) bool {
-	if waitMidiTxc {
+	if waitTxc[usb_MIDI_ENDPOINT_IN] {
 		return false
 	}
 
@@ -2609,7 +2590,7 @@ func SendUSBMIDIPacket(ep uint32, data []byte) bool {
 	// send data by setting bank ready
 	setEPSTATUSSET(ep, sam.USB_DEVICE_ENDPOINT_EPSTATUSSET_BK1RDY)
 
-	waitMidiTxc = true
+	waitTxc[usb_MIDI_ENDPOINT_IN] = true
 
 	return true
 }

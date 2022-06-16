@@ -155,6 +155,38 @@ const (
 	usb_CDC_LINESTATE_RTS = 0x02
 )
 
+var (
+	waitTxc = []bool{
+		usb_CONTROL_ENDPOINT:  false,
+		usb_CDC_ENDPOINT_ACM:  false,
+		usb_CDC_ENDPOINT_OUT:  false,
+		usb_CDC_ENDPOINT_IN:   false,
+		usb_HID_ENDPOINT_IN:   false,
+		usb_MIDI_ENDPOINT_OUT: false,
+		usb_MIDI_ENDPOINT_IN:  false,
+	}
+
+	handleEndpointRx2 = []func([]byte){
+		usb_CONTROL_ENDPOINT:  nil,
+		usb_CDC_ENDPOINT_ACM:  nil,
+		usb_CDC_ENDPOINT_OUT:  cdcCallbackRx,
+		usb_CDC_ENDPOINT_IN:   nil,
+		usb_HID_ENDPOINT_IN:   nil,
+		usb_MIDI_ENDPOINT_OUT: nil,
+		usb_MIDI_ENDPOINT_IN:  nil,
+	}
+
+	endPoints = []uint32{
+		usb_CONTROL_ENDPOINT:  usb_ENDPOINT_TYPE_CONTROL,
+		usb_CDC_ENDPOINT_ACM:  (usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn),
+		usb_CDC_ENDPOINT_OUT:  (usb_ENDPOINT_TYPE_BULK | usbEndpointOut),
+		usb_CDC_ENDPOINT_IN:   (usb_ENDPOINT_TYPE_BULK | usbEndpointIn),
+		usb_HID_ENDPOINT_IN:   (usb_ENDPOINT_TYPE_DISABLE), // Interrupt In
+		usb_MIDI_ENDPOINT_OUT: (usb_ENDPOINT_TYPE_DISABLE), // Bulk Out
+		usb_MIDI_ENDPOINT_IN:  (usb_ENDPOINT_TYPE_DISABLE), // Bulk In
+	}
+)
+
 // usbDeviceDescBank is the USB device endpoint descriptor.
 // typedef struct {
 // 	__IO USB_DEVICE_ADDR_Type      ADDR;        /**< \brief Offset: 0x000 (R/W 32) DEVICE_DESC_BANK Endpoint Bank, Adress of Data Buffer */
@@ -351,4 +383,5 @@ func EnableMIDI(callback func(), callbackRx func([]byte)) {
 
 	midiCallback = callback
 	midiCallbackRx = callbackRx
+	handleEndpointRx2[usb_MIDI_ENDPOINT_OUT] = midiCallbackRx
 }
