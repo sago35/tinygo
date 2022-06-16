@@ -103,6 +103,7 @@ const (
 	usb_CDC_ACM_INTERFACE  = 0 // CDC ACM
 	usb_CDC_DATA_INTERFACE = 1 // CDC Data
 	usb_CDC_FIRST_ENDPOINT = 1
+	usb_HID_INTERFACE      = 2 // HID
 
 	// Endpoint
 	usb_CONTROL_ENDPOINT  = 0
@@ -156,9 +157,10 @@ const (
 )
 
 var (
-	waitTxc           [8]bool
-	handleEndpointTx2 [8]func()
-	handleEndpointRx2 [8]func([]byte)
+	waitTxc             [8]bool
+	handleEndpointTx2   [8]func()
+	handleEndpointRx2   [8]func([]byte)
+	handleCallbackSetup [3]func(USBSetup) bool
 
 	endPoints = []uint32{
 		usb_CONTROL_ENDPOINT:  usb_ENDPOINT_TYPE_CONTROL,
@@ -334,24 +336,31 @@ func sendDescriptor(setup USBSetup) {
 	return
 }
 
-func EnableCDC(callback func(), callbackRx func([]byte)) {
+func EnableUSBCDC() {
+	EnableCDC(USB.Flush, cdcCallbackRx, cdcSetup)
+}
+
+func EnableCDC(callback func(), callbackRx func([]byte), callbackSetup func(USBSetup) bool) {
 	//usbDescriptor = descriptorCDC
 	endPoints[usb_CDC_ENDPOINT_ACM] = (usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn)
 	endPoints[usb_CDC_ENDPOINT_OUT] = (usb_ENDPOINT_TYPE_BULK | usbEndpointOut)
 	endPoints[usb_CDC_ENDPOINT_IN] = (usb_ENDPOINT_TYPE_BULK | usbEndpointIn)
-	handleEndpointRx2[usb_CDC_ENDPOINT_OUT] = cdcCallbackRx
-	handleEndpointTx2[usb_CDC_ENDPOINT_IN] = USB.Flush
+	handleEndpointRx2[usb_CDC_ENDPOINT_OUT] = callbackRx
+	handleEndpointTx2[usb_CDC_ENDPOINT_IN] = callback
+	handleCallbackSetup[usb_CDC_ACM_INTERFACE] = cdcSetup // 0x02 (Communications and CDC Control)
+	handleCallbackSetup[usb_CDC_DATA_INTERFACE] = nil     // 0x0A (CDC-Data)
 }
 
 // EnableHID enables HID. This function must be executed from the init().
-func EnableHID(callback func(), callbackRx func([]byte)) {
+func EnableHID(callback func(), callbackRx func([]byte), callbackSetup func(USBSetup) bool) {
 	usbDescriptor = descriptorCDCHID
 	endPoints[usb_HID_ENDPOINT_IN] = (usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn)
 	handleEndpointTx2[usb_HID_ENDPOINT_IN] = callback
+	handleCallbackSetup[usb_HID_INTERFACE] = callbackSetup // 0x03 (HID - Human Interface Device)
 }
 
 // EnableMIDI enables MIDI. This function must be executed from the init().
-func EnableMIDI(callback func(), callbackRx func([]byte)) {
+func EnableMIDI(callback func(), callbackRx func([]byte), callbackSetup func(USBSetup) bool) {
 	usbDescriptor = descriptorCDCMIDI
 	endPoints[usb_MIDI_ENDPOINT_OUT] = (usb_ENDPOINT_TYPE_BULK | usbEndpointOut)
 	endPoints[usb_MIDI_ENDPOINT_IN] = (usb_ENDPOINT_TYPE_BULK | usbEndpointIn)

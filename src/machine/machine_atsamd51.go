@@ -2196,11 +2196,8 @@ func handleUSBIRQ(interrupt.Interrupt) {
 			ok = handleStandardSetup(setup)
 		} else {
 			// Class Interface Requests
-			if setup.WIndex == usb_CDC_ACM_INTERFACE {
-				ok = cdcSetup(setup)
-			} else if setup.BmRequestType == usb_SET_REPORT_TYPE && setup.BRequest == usb_SET_IDLE {
-				sendZlp()
-				ok = true
+			if setup.WIndex < uint16(len(handleCallbackSetup)) && handleCallbackSetup[setup.WIndex] != nil {
+				ok = handleCallbackSetup[setup.WIndex](setup)
 			}
 		}
 
@@ -2606,6 +2603,10 @@ func handleEndpointRx(ep uint32) []byte {
 	setEPSTATUSCLR(ep, sam.USB_DEVICE_ENDPOINT_EPSTATUSCLR_BK0RDY)
 
 	return buf[:count]
+}
+
+func SendZlp() {
+	usbEndpointDescriptors[0].DeviceDescBank[1].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask << usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos)
 }
 
 func sendZlp() {
