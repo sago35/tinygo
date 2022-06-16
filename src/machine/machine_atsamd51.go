@@ -2307,30 +2307,29 @@ func handleUSBIRQ(interrupt.Interrupt) {
 		epFlags := getEPINTFLAG(i)
 		if (epFlags&sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0) > 0 ||
 			(epFlags&sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1) > 0 {
-			switch i {
-			case usb_CDC_ENDPOINT_OUT:
-				handleEndpoint(i)
-				setEPINTFLAG(i, epFlags)
-			case usb_CDC_ENDPOINT_IN, usb_CDC_ENDPOINT_ACM:
-				setEPSTATUSCLR(i, sam.USB_DEVICE_ENDPOINT_EPSTATUSCLR_BK1RDY)
-				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
-
-				if i == usb_CDC_ENDPOINT_IN {
+			if (endPoints[i] & usbEndpointIn) > 0 {
+				switch i {
+				case usb_CDC_ENDPOINT_IN:
 					USB.waitTxc = false
+				case usb_CDC_ENDPOINT_ACM:
+				case usb_HID_ENDPOINT_IN:
+					waitHidTxc = false
+				case usb_MIDI_ENDPOINT_IN:
+					waitMidiTxc = false
 				}
-			case usb_HID_ENDPOINT_IN:
-				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
-				waitHidTxc = false
-			case usb_MIDI_ENDPOINT_OUT:
-				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0)
-				buf := handleEndpointRx(i)
-				if midiCallbackRx != nil {
-					midiCallbackRx(buf)
+				setEPSTATUSCLR(i, sam.USB_DEVICE_ENDPOINT_EPSTATUSCLR_BK1RDY)
+			} else {
+				switch i {
+				case usb_CDC_ENDPOINT_OUT:
+					handleEndpoint(i)
+				case usb_MIDI_ENDPOINT_OUT:
+					buf := handleEndpointRx(i)
+					if midiCallbackRx != nil {
+						midiCallbackRx(buf)
+					}
 				}
-			case usb_MIDI_ENDPOINT_IN:
-				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
-				waitMidiTxc = false
 			}
+			setEPINTFLAG(i, epFlags)
 		}
 	}
 }
