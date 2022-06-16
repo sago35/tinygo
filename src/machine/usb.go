@@ -335,7 +335,7 @@ func sendDescriptor(setup USBSetup) {
 }
 
 func EnableCDC(callback func(), callbackRx func([]byte)) {
-	usbDescriptor = descriptorCDC
+	//usbDescriptor = descriptorCDC
 	endPoints[usb_CDC_ENDPOINT_ACM] = (usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn)
 	endPoints[usb_CDC_ENDPOINT_OUT] = (usb_ENDPOINT_TYPE_BULK | usbEndpointOut)
 	endPoints[usb_CDC_ENDPOINT_IN] = (usb_ENDPOINT_TYPE_BULK | usbEndpointIn)
@@ -344,7 +344,7 @@ func EnableCDC(callback func(), callbackRx func([]byte)) {
 }
 
 // EnableHID enables HID. This function must be executed from the init().
-func EnableHID(callback func()) {
+func EnableHID(callback func(), callbackRx func([]byte)) {
 	usbDescriptor = descriptorCDCHID
 	endPoints[usb_HID_ENDPOINT_IN] = (usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn)
 	handleEndpointTx2[usb_HID_ENDPOINT_IN] = callback
