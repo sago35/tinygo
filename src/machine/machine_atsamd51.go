@@ -1997,6 +1997,10 @@ const (
 	usbcdcTxMaxRetriesAllowed uint8 = 5
 )
 
+func (usbcdc *USBCDC) Flush2() {
+	usbcdc.Flush()
+}
+
 // Flush flushes buffered data.
 func (usbcdc *USBCDC) Flush() error {
 	if usbLineInfo.lineState > 0 {
@@ -2235,12 +2239,10 @@ func handleUSBIRQ(interrupt.Interrupt) {
 
 	// Start of frame
 	if (flags & sam.USB_DEVICE_INTFLAG_SOF) > 0 {
-		USB.Flush()
-		if hidCallback != nil && !waitTxc[usb_HID_ENDPOINT_IN] {
-			hidCallback()
-		}
-		if midiCallback != nil && !waitTxc[usb_MIDI_ENDPOINT_IN] {
-			midiCallback()
+		for i, fn := range handleEndpointTx2 {
+			if fn != nil && !waitTxc[i] {
+				fn()
+			}
 		}
 		// if you want to blink LED showing traffic, this would be the place...
 	}
@@ -2293,18 +2295,18 @@ func handleUSBIRQ(interrupt.Interrupt) {
 	for i = 1; i < uint32(len(endPoints)); i++ {
 		// Check if endpoint has a pending interrupt
 		epFlags := getEPINTFLAG(i)
-		if (epFlags&sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0) > 0 ||
-			(epFlags&sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1) > 0 {
-			if (endPoints[i] & usbEndpointIn) > 0 {
-				waitTxc[i] = false
-				setEPSTATUSCLR(i, sam.USB_DEVICE_ENDPOINT_EPSTATUSCLR_BK1RDY)
-			} else {
-				buf := handleEndpointRx(i)
-				if handleEndpointRx2[i] != nil {
-					handleEndpointRx2[i](buf)
-				}
+		setEPINTFLAG(i, epFlags)
+
+		if (epFlags & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0) > 0 {
+			buf := handleEndpointRx(i)
+			if handleEndpointRx2[i] != nil {
+				handleEndpointRx2[i](buf)
 			}
-			setEPINTFLAG(i, epFlags)
+			setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0)
+		} else if (epFlags & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1) > 0 {
+			waitTxc[i] = false
+			setEPSTATUSCLR(i, sam.USB_DEVICE_ENDPOINT_EPSTATUSCLR_BK1RDY)
+			setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
 		}
 	}
 }
