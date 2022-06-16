@@ -2240,8 +2240,10 @@ func handleUSBIRQ(interrupt.Interrupt) {
 	// Start of frame
 	if (flags & sam.USB_DEVICE_INTFLAG_SOF) > 0 {
 		for i, fn := range handleEndpointTx2 {
-			if fn != nil && !waitTxc[i] {
-				fn()
+			if i != usb_HID_ENDPOINT_IN && i != usb_MIDI_ENDPOINT_IN {
+				if fn != nil && !waitTxc[i] {
+					fn()
+				}
 			}
 		}
 		// if you want to blink LED showing traffic, this would be the place...
@@ -2304,9 +2306,19 @@ func handleUSBIRQ(interrupt.Interrupt) {
 			}
 			setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0)
 		} else if (epFlags & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1) > 0 {
-			waitTxc[i] = false
-			setEPSTATUSCLR(i, sam.USB_DEVICE_ENDPOINT_EPSTATUSCLR_BK1RDY)
-			setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
+			if i == usb_HID_ENDPOINT_IN {
+				if handleEndpointTx2[usb_HID_ENDPOINT_IN] != nil {
+					handleEndpointTx2[usb_HID_ENDPOINT_IN]()
+				}
+			} else if i == usb_MIDI_ENDPOINT_IN {
+				if handleEndpointTx2[usb_MIDI_ENDPOINT_IN] != nil {
+					handleEndpointTx2[usb_MIDI_ENDPOINT_IN]()
+				}
+			} else {
+				waitTxc[i] = false
+				setEPSTATUSCLR(i, sam.USB_DEVICE_ENDPOINT_EPSTATUSCLR_BK1RDY)
+				setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1)
+			}
 		}
 	}
 }
@@ -2561,10 +2573,6 @@ func cdcSetup(setup USBSetup) bool {
 
 // SendUSBHIDPacket sends a packet for USBHID (interrupt / in).
 func SendUSBHIDPacket(ep uint32, data []byte) bool {
-	if waitTxc[usb_HID_ENDPOINT_IN] {
-		return false
-	}
-
 	sendUSBPacket(ep, data, 0)
 
 	// clear transfer complete flag
@@ -2572,18 +2580,12 @@ func SendUSBHIDPacket(ep uint32, data []byte) bool {
 
 	// send data by setting bank ready
 	setEPSTATUSSET(ep, sam.USB_DEVICE_ENDPOINT_EPSTATUSSET_BK1RDY)
-
-	waitTxc[usb_HID_ENDPOINT_IN] = true
 
 	return true
 }
 
 // SendUSBMIDIPacket sends a packet for USBHID (interrupt / in).
 func SendUSBMIDIPacket(ep uint32, data []byte) bool {
-	if waitTxc[usb_MIDI_ENDPOINT_IN] {
-		return false
-	}
-
 	sendUSBPacket(ep, data, 0)
 
 	// clear transfer complete flag
@@ -2591,8 +2593,6 @@ func SendUSBMIDIPacket(ep uint32, data []byte) bool {
 
 	// send data by setting bank ready
 	setEPSTATUSSET(ep, sam.USB_DEVICE_ENDPOINT_EPSTATUSSET_BK1RDY)
-
-	waitTxc[usb_MIDI_ENDPOINT_IN] = true
 
 	return true
 }

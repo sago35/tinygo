@@ -14,6 +14,7 @@ var Midi *midi
 type midi struct {
 	buf            *RingBuffer
 	callbackFuncRx func([]byte)
+	waitTxc        bool
 }
 
 func init() {
@@ -42,7 +43,7 @@ func (m *midi) SetCallback(callbackRx func([]byte)) {
 func (m *midi) Write(b []byte) (n int, err error) {
 	i := 0
 	for i = 0; i < len(b); i += 4 {
-		m.buf.Put(b[i : i+4])
+		m.tx(b[i : i+4])
 	}
 	return i, nil
 }
@@ -54,7 +55,18 @@ func (m *midi) sendUSBPacket(b []byte) {
 
 // from BulkIn
 func (m *midi) Callback() {
+	m.waitTxc = false
 	if b, ok := m.buf.Get(); ok {
+		m.waitTxc = true
+		m.sendUSBPacket(b)
+	}
+}
+
+func (m *midi) tx(b []byte) {
+	if m.waitTxc {
+		m.buf.Put(b)
+	} else {
+		m.waitTxc = true
 		m.sendUSBPacket(b)
 	}
 }
