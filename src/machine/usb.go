@@ -105,6 +105,7 @@ const (
 	usb_CDC_FIRST_ENDPOINT = 1
 
 	// Endpoint
+	usb_CONTROL_ENDPOINT  = 0
 	usb_CDC_ENDPOINT_ACM  = 1
 	usb_CDC_ENDPOINT_OUT  = 2
 	usb_CDC_ENDPOINT_IN   = 3

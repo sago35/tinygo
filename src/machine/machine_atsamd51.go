@@ -2119,13 +2119,14 @@ var (
 
 	isEndpointHalt        = false
 	isRemoteWakeUpEnabled = false
-	endPoints             = []uint32{usb_ENDPOINT_TYPE_CONTROL,
-		(usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn),
-		(usb_ENDPOINT_TYPE_BULK | usbEndpointOut),
-		(usb_ENDPOINT_TYPE_BULK | usbEndpointIn),
-		(usb_ENDPOINT_TYPE_DISABLE), // for HID (Interrupt In)
-		(usb_ENDPOINT_TYPE_DISABLE), // for MIDI (Bulk Out)
-		(usb_ENDPOINT_TYPE_DISABLE), // for MIDI (Bulk In)
+	endPoints             = []uint32{
+		usb_CONTROL_ENDPOINT:  usb_ENDPOINT_TYPE_CONTROL,
+		usb_CDC_ENDPOINT_ACM:  (usb_ENDPOINT_TYPE_INTERRUPT | usbEndpointIn),
+		usb_CDC_ENDPOINT_OUT:  (usb_ENDPOINT_TYPE_BULK | usbEndpointOut),
+		usb_CDC_ENDPOINT_IN:   (usb_ENDPOINT_TYPE_BULK | usbEndpointIn),
+		usb_HID_ENDPOINT_IN:   (usb_ENDPOINT_TYPE_DISABLE), // Interrupt In
+		usb_MIDI_ENDPOINT_OUT: (usb_ENDPOINT_TYPE_DISABLE), // Bulk Out
+		usb_MIDI_ENDPOINT_IN:  (usb_ENDPOINT_TYPE_DISABLE), // Bulk In
 	}
 
 	usbConfiguration uint8
