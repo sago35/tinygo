@@ -13,7 +13,6 @@ import (
 	"device/sam"
 	"errors"
 	"runtime/interrupt"
-	"runtime/volatile"
 	"unsafe"
 )
 
@@ -1975,65 +1974,6 @@ func (tcc *TCC) Set(channel uint8, value uint32) {
 	}
 }
 
-// USBCDC is the USB CDC aka serial over USB interface on the SAMD21.
-type USBCDC struct {
-	Buffer            *RingBuffer
-	Buffer2           *RingBuffer2
-	TxIdx             volatile.Register8
-	waitTxcRetryCount uint8
-	sent              bool
-	configured        bool
-	waitTxc           bool
-}
-
-var (
-	// USB is a USB CDC interface.
-	USB = &USBCDC{
-		Buffer:  NewRingBuffer(),
-		Buffer2: NewRingBuffer2(),
-	}
-)
-
-// Flush flushes buffered data.
-func (usbcdc *USBCDC) Flush() {
-	usbcdc.waitTxc = false
-	if b, ok := usbcdc.Buffer2.Get(); ok {
-		usbcdc.waitTxc = true
-		SendUSBInPacket(usb_CDC_ENDPOINT_IN, b)
-	}
-}
-
-// Write data to the USBCDC.
-func (usbcdc *USBCDC) Write(data []byte) (n int, err error) {
-	if usbLineInfo.lineState > 0 {
-		for i := 0; i < len(data); i += 128 {
-			endpos := i + 128
-			if endpos > len(data) {
-				endpos = len(data)
-			}
-			usbcdc.Buffer2.Put(data[i:endpos])
-		}
-		if !usbcdc.waitTxc {
-			usbcdc.Flush()
-		}
-	}
-	return len(data), nil
-}
-
-// WriteByte writes a byte of data to the USB CDC interface.
-func (usbcdc *USBCDC) WriteByte(c byte) error {
-	usbcdc.Write([]byte{c})
-	return nil
-}
-
-func (usbcdc *USBCDC) DTR() bool {
-	return (usbLineInfo.lineState & usb_CDC_LINESTATE_DTR) > 0
-}
-
-func (usbcdc *USBCDC) RTS() bool {
-	return (usbLineInfo.lineState & usb_CDC_LINESTATE_RTS) > 0
-}
-
 const (
 	// these are SAMD51 specific.
 	usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos  = 0
@@ -2057,7 +1997,6 @@ var (
 
 	usbConfiguration uint8
 	usbSetInterface  uint8
-	usbLineInfo      = cdcLineInfo{115200, 0x00, 0x00, 0x08, 0x00}
 )
 
 // USBCDC のコンフィグではなく USB Device のコンフィグ (samd51 依存)
@@ -2103,12 +2042,6 @@ func (usbcdc *USBCDC) Configure(config UARTConfig) {
 	interrupt.New(sam.IRQ_USB_TRCPT1, handleUSBIRQ).Enable()
 
 	usbcdc.configured = true
-}
-
-// USBCDC のコンフィグではなく USB Device のコンフィグ (依存無し)
-// Configured returns whether usbcdc is configured or not.
-func (usbcdc *USBCDC) Configured() bool {
-	return usbcdc.configured
 }
 
 func handlePadCalibration() {
@@ -2236,12 +2169,6 @@ func handleUSBIRQ(interrupt.Interrupt) {
 				handleEndpointTx2[i]()
 			}
 		}
-	}
-}
-
-func cdcCallbackRx(b []byte) {
-	for i := range b {
-		USB.Receive(b[i])
 	}
 }
 
@@ -2432,61 +2359,6 @@ func handleStandardSetup(setup USBSetup) bool {
 	}
 }
 
-func cdcSetup(setup USBSetup) bool {
-	if setup.BmRequestType == usb_REQUEST_DEVICETOHOST_CLASS_INTERFACE {
-		if setup.BRequest == usb_CDC_GET_LINE_CODING {
-			var b [cdcLineInfoSize]byte
-			b[0] = byte(usbLineInfo.dwDTERate)
-			b[1] = byte(usbLineInfo.dwDTERate >> 8)
-			b[2] = byte(usbLineInfo.dwDTERate >> 16)
-			b[3] = byte(usbLineInfo.dwDTERate >> 24)
-			b[4] = byte(usbLineInfo.bCharFormat)
-			b[5] = byte(usbLineInfo.bParityType)
-			b[6] = byte(usbLineInfo.bDataBits)
-
-			sendUSBPacket(0, b[:], setup.WLength)
-			return true
-		}
-	}
-
-	if setup.BmRequestType == usb_REQUEST_HOSTTODEVICE_CLASS_INTERFACE {
-		if setup.BRequest == usb_CDC_SET_LINE_CODING {
-			b, err := receiveUSBControlPacket()
-			if err != nil {
-				return false
-			}
-
-			usbLineInfo.dwDTERate = uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24
-			usbLineInfo.bCharFormat = b[4]
-			usbLineInfo.bParityType = b[5]
-			usbLineInfo.bDataBits = b[6]
-		}
-
-		if setup.BRequest == usb_CDC_SET_CONTROL_LINE_STATE {
-			usbLineInfo.lineState = setup.WValueL
-		}
-
-		if setup.BRequest == usb_CDC_SET_LINE_CODING || setup.BRequest == usb_CDC_SET_CONTROL_LINE_STATE {
-			// auto-reset into the bootloader
-			if usbLineInfo.dwDTERate == 1200 && usbLineInfo.lineState&usb_CDC_LINESTATE_DTR == 0 {
-				ResetProcessor()
-			} else {
-				// TODO: cancel any reset
-			}
-			sendZlp()
-		}
-
-		if setup.BRequest == usb_CDC_SEND_BREAK {
-			// TODO: something with this value?
-			// breakValue = ((uint16_t)setup.wValueH << 8) | setup.wValueL;
-			// return false;
-			sendZlp()
-		}
-		return true
-	}
-	return false
-}
-
 // SendUSBInPacket sends a packet for USBHID (interrupt in / bulk in).
 func SendUSBInPacket(ep uint32, data []byte) bool {
 	sam.PORT.GROUP[0].OUTTGL.Set(1 << 2) // wioterminal.BCM17.Toggle()
@@ -2521,7 +2393,7 @@ func sendUSBPacket(ep uint32, data []byte, maxsize uint16) {
 	usbEndpointDescriptors[ep].DeviceDescBank[1].PCKSIZE.SetBits((uint32(l) & usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask) << usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos)
 }
 
-func receiveUSBControlPacket() ([cdcLineInfoSize]byte, error) {
+func ReceiveUSBControlPacket() ([cdcLineInfoSize]byte, error) {
 	var b [cdcLineInfoSize]byte
 
 	// address
