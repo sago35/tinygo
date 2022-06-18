@@ -4,6 +4,7 @@
 package machine
 
 import (
+	"errors"
 	"runtime/volatile"
 )
 
@@ -27,6 +28,28 @@ func strToUTF16LEDescriptor(in string, out []byte) {
 var (
 	// TODO: allow setting these
 	usb_STRING_LANGUAGE = [2]uint16{(3 << 8) | (2 + 2), 0x0409} // English
+)
+
+const cdcLineInfoSize = 7
+
+var (
+	errUSBCDCBufferEmpty      = errors.New("USB-CDC buffer empty")
+	errUSBCDCWriteByteTimeout = errors.New("USB-CDC write byte timeout")
+	errUSBCDCReadTimeout      = errors.New("USB-CDC read timeout")
+	errUSBCDCBytesRead        = errors.New("USB-CDC invalid number of bytes read")
+)
+
+var (
+	usbEndpointDescriptors [8]usbDeviceDescriptor
+
+	udd_ep_in_cache_buffer  [7][128 * 2]uint8
+	udd_ep_out_cache_buffer [7][128 * 2]uint8
+
+	isEndpointHalt        = false
+	isRemoteWakeUpEnabled = false
+
+	usbConfiguration uint8
+	usbSetInterface  uint8
 )
 
 const (
@@ -236,6 +259,84 @@ func sendDescriptor(setup USBSetup) {
 	// do not know how to handle this message, so return zero
 	sendZlp()
 	return
+}
+
+func handleStandardSetup(setup USBSetup) bool {
+	switch setup.BRequest {
+	case usb_GET_STATUS:
+		buf := []byte{0, 0}
+
+		if setup.BmRequestType != 0 { // endpoint
+			// TODO: actually check if the endpoint in question is currently halted
+			if isEndpointHalt {
+				buf[0] = 1
+			}
+		}
+
+		sendUSBPacket(0, buf, setup.WLength)
+		return true
+
+	case usb_CLEAR_FEATURE:
+		if setup.WValueL == 1 { // DEVICEREMOTEWAKEUP
+			isRemoteWakeUpEnabled = false
+		} else if setup.WValueL == 0 { // ENDPOINTHALT
+			isEndpointHalt = false
+		}
+		sendZlp()
+		return true
+
+	case usb_SET_FEATURE:
+		if setup.WValueL == 1 { // DEVICEREMOTEWAKEUP
+			isRemoteWakeUpEnabled = true
+		} else if setup.WValueL == 0 { // ENDPOINTHALT
+			isEndpointHalt = true
+		}
+		sendZlp()
+		return true
+
+	case usb_SET_ADDRESS:
+		return handleUSBSetAddress(setup)
+
+	case usb_GET_DESCRIPTOR:
+		sendDescriptor(setup)
+		return true
+
+	case usb_SET_DESCRIPTOR:
+		return false
+
+	case usb_GET_CONFIGURATION:
+		buff := []byte{usbConfiguration}
+		sendUSBPacket(0, buff, setup.WLength)
+		return true
+
+	case usb_SET_CONFIGURATION:
+		if setup.BmRequestType&usb_REQUEST_RECIPIENT == usb_REQUEST_DEVICE {
+			for i := 1; i < len(endPoints); i++ {
+				initEndpoint(uint32(i), endPoints[i])
+			}
+
+			usbConfiguration = setup.WValueL
+
+			sendZlp()
+			return true
+		} else {
+			return false
+		}
+
+	case usb_GET_INTERFACE:
+		buff := []byte{usbSetInterface}
+		sendUSBPacket(0, buff, setup.WLength)
+		return true
+
+	case usb_SET_INTERFACE:
+		usbSetInterface = setup.WValueL
+
+		sendZlp()
+		return true
+
+	default:
+		return true
+	}
 }
 
 func EnableCDC(callback func(), callbackRx func([]byte), callbackSetup func(USBSetup) bool) {
