@@ -1999,17 +1999,15 @@ var (
 	usbSetInterface  uint8
 )
 
-type USBCDC struct {
-	configured bool
+type USBDevice struct {
 }
 
 var (
-	USBx = &USBCDC{}
+	USB = &USBDevice{}
 )
 
-// USBCDC のコンフィグではなく USB Device のコンフィグ (samd51 依存)
-// Configure the USB CDC interface. The config is here for compatibility with the UART interface.
-func (usbcdc *USBCDC) Configure(config UARTConfig) {
+// Configure the USB peripheral. The config is here for compatibility with the UART interface.
+func (dev *USBDevice) Configure(config UARTConfig) {
 	// reset USB interface
 	sam.USB_DEVICE.CTRLA.SetBits(sam.USB_DEVICE_CTRLA_SWRST)
 	for sam.USB_DEVICE.SYNCBUSY.HasBits(sam.USB_DEVICE_SYNCBUSY_SWRST) ||
@@ -2048,8 +2046,6 @@ func (usbcdc *USBCDC) Configure(config UARTConfig) {
 	interrupt.New(sam.IRQ_USB_SOF_HSOF, handleUSBIRQ).Enable()
 	interrupt.New(sam.IRQ_USB_TRCPT0, handleUSBIRQ).Enable()
 	interrupt.New(sam.IRQ_USB_TRCPT1, handleUSBIRQ).Enable()
-
-	usbcdc.configured = true
 }
 
 func handlePadCalibration() {
