@@ -76,6 +76,15 @@ func (dev *USBDevice) Configure(config UARTConfig) {
 func handleUSBIRQ(interrupt.Interrupt) {
 	if nrf.USBD.EVENTS_SOF.Get() == 1 {
 		nrf.USBD.EVENTS_SOF.Set(0)
+
+		for i := 1; i < len(endPoints); i++ {
+			if (endPoints[i] & usbEndpointIn) > 0 {
+				if callbackUSBTx[i] != nil {
+					callbackUSBTx[i]()
+				}
+			} else {
+			}
+		}
 		// if you want to blink LED showing traffic, this would be the place...
 		dbg.Pin0.Toggle()
 	} else {
@@ -162,9 +171,9 @@ func handleUSBIRQ(interrupt.Interrupt) {
 			outDataDone := epDataStatus&(nrf.USBD_EPDATASTATUS_EPOUT1<<(i-1)) > 0
 			dbg.Pin3.Toggle()
 			if inDataDone {
-				if callbackUSBTx[i] != nil {
-					callbackUSBTx[i]()
-				}
+				//if callbackUSBTx[i] != nil {
+				//	callbackUSBTx[i]()
+				//}
 			} else if outDataDone {
 				buf := handleEndpointRx(i)
 				if callbackUSBRx[i] != nil {
@@ -178,16 +187,6 @@ func handleUSBIRQ(interrupt.Interrupt) {
 	for i := 0; i < len(endPoints); i++ {
 		if nrf.USBD.EVENTS_ENDEPOUT[i].Get() > 0 {
 			nrf.USBD.EVENTS_ENDEPOUT[i].Set(0)
-			dbg.Pin4.Toggle()
-			//if i == 0 && epout0data_setlinecoding {
-			//	epout0data_setlinecoding = false
-			//	count := int(nrf.USBD.SIZE.EPOUT[0].Get())
-			//	if count >= 7 {
-			//		parseUSBLineInfo(udd_ep_out_cache_buffer[0][:count])
-			//		checkShouldReset()
-			//	}
-			//	nrf.USBD.TASKS_EP0STATUS.Set(1)
-			//}
 			if i == usb_CDC_ENDPOINT_OUT {
 				buf := handleEndpointRx(uint32(i))
 				if callbackUSBRx[i] != nil {
@@ -309,53 +308,43 @@ func handleUSBSetAddress(setup USBSetup) bool {
 func ReceiveUSBControlPacket() ([cdcLineInfoSize]byte, error) {
 	var b [cdcLineInfoSize]byte
 
-	//nrf.USBD.TASKS_EP0RCVOUT.Set(1)
+	nrf.USBD.TASKS_EP0RCVOUT.Set(1)
 
-	//nrf.USBD.EPOUT[0].PTR.Set(uint32(uintptr(unsafe.Pointer(&udd_ep_out_cache_buffer[0]))))
-	//nrf.USBD.EPOUT[0].MAXCNT.Set(64)
-	//nrf.USBD.TASKS_STARTEPOUT[0].Set(1)
+	nrf.USBD.EPOUT[0].PTR.Set(uint32(uintptr(unsafe.Pointer(&udd_ep_out_cache_buffer[0]))))
+	nrf.USBD.EPOUT[0].MAXCNT.Set(64)
 
-	//timeout := 300000
-	//for {
-	//	count := int(nrf.USBD.SIZE.EPOUT[0].Get())
-	//	if count >= 7 {
-	//		parseUSBLineInfo(udd_ep_out_cache_buffer[0][:count])
-	//		checkShouldReset()
-	//	}
-	//	nrf.USBD.TASKS_EP0STATUS.Set(1)
-	//	timeout--
-	//	if timeout == 0 {
-	//		return b, errUSBCDCReadTimeout
-	//	}
-	//}
+	timeout := 300000
+	count := 0
+	for {
+		if nrf.USBD.EVENTS_EP0DATADONE.Get() == 1 {
+			nrf.USBD.EVENTS_EP0DATADONE.Set(0)
+			count = int(nrf.USBD.SIZE.EPOUT[0].Get())
+			nrf.USBD.TASKS_STARTEPOUT[0].Set(1)
+			break
+		}
+		timeout--
+		if timeout == 0 {
+			return b, errUSBCDCReadTimeout
+		}
+	}
 
-	//// Wait until OUT transfer is ready.
-	//timeout := 300000
-	//for (getEPSTATUS(0) & sam.USB_DEVICE_ENDPOINT_EPSTATUS_BK0RDY) == 0 {
-	//	timeout--
-	//	if timeout == 0 {
-	//		return b, errUSBCDCReadTimeout
-	//	}
-	//}
+	timeout = 300000
+	for {
+		if nrf.USBD.EVENTS_ENDEPOUT[0].Get() == 1 {
+			nrf.USBD.EVENTS_ENDEPOUT[0].Set(0)
+			break
+		}
 
-	//// Wait until OUT transfer is completed.
-	//timeout = 300000
-	//for (getEPINTFLAG(0) & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1) == 0 {
-	//	timeout--
-	//	if timeout == 0 {
-	//		return b, errUSBCDCReadTimeout
-	//	}
-	//}
+		timeout--
+		if timeout == 0 {
+			return b, errUSBCDCReadTimeout
+		}
+	}
 
-	//// get data
-	//bytesread := uint32((usbEndpointDescriptors[0].DeviceDescBank[0].PCKSIZE.Get() >>
-	//	usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos) & usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask)
+	nrf.USBD.TASKS_EP0STATUS.Set(1)
+	nrf.USBD.TASKS_EP0RCVOUT.Set(0)
 
-	//if bytesread != cdcLineInfoSize {
-	//	return b, errUSBCDCBytesRead
-	//}
-
-	//copy(b[:7], udd_ep_out_cache_buffer[0][:7])
+	copy(b[:7], udd_ep_out_cache_buffer[0][:count])
 
 	return b, nil
 }
