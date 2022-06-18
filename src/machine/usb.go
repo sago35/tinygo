@@ -250,7 +250,7 @@ func sendDescriptor(setup USBSetup) {
 
 		case usb_ISERIAL:
 			// TODO: allow returning a product serial number
-			sendZlp()
+			SendZlp()
 		}
 		return
 	case usb_HID_REPORT_TYPE:
@@ -264,7 +264,7 @@ func sendDescriptor(setup USBSetup) {
 	}
 
 	// do not know how to handle this message, so return zero
-	sendZlp()
+	SendZlp()
 	return
 }
 
@@ -289,7 +289,7 @@ func handleStandardSetup(setup USBSetup) bool {
 		} else if setup.WValueL == 0 { // ENDPOINTHALT
 			isEndpointHalt = false
 		}
-		sendZlp()
+		SendZlp()
 		return true
 
 	case usb_SET_FEATURE:
@@ -298,7 +298,7 @@ func handleStandardSetup(setup USBSetup) bool {
 		} else if setup.WValueL == 0 { // ENDPOINTHALT
 			isEndpointHalt = true
 		}
-		sendZlp()
+		SendZlp()
 		return true
 
 	case usb_SET_ADDRESS:
@@ -324,7 +324,7 @@ func handleStandardSetup(setup USBSetup) bool {
 
 			usbConfiguration = setup.WValueL
 
-			sendZlp()
+			SendZlp()
 			return true
 		} else {
 			return false
@@ -338,7 +338,7 @@ func handleStandardSetup(setup USBSetup) bool {
 	case usb_SET_INTERFACE:
 		usbSetInterface = setup.WValueL
 
-		sendZlp()
+		SendZlp()
 		return true
 
 	default:
