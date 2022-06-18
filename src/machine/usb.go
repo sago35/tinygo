@@ -245,8 +245,8 @@ func EnableCDC(callback func(), callbackRx func([]byte), callbackSetup func(USBS
 	endPoints[usb_CDC_ENDPOINT_IN] = (usb_ENDPOINT_TYPE_BULK | usbEndpointIn)
 	handleEndpointRx2[usb_CDC_ENDPOINT_OUT] = callbackRx
 	handleEndpointTx2[usb_CDC_ENDPOINT_IN] = callback
-	handleCallbackSetup[usb_CDC_ACM_INTERFACE] = cdcSetup // 0x02 (Communications and CDC Control)
-	handleCallbackSetup[usb_CDC_DATA_INTERFACE] = nil     // 0x0A (CDC-Data)
+	handleCallbackSetup[usb_CDC_ACM_INTERFACE] = callbackSetup // 0x02 (Communications and CDC Control)
+	handleCallbackSetup[usb_CDC_DATA_INTERFACE] = nil          // 0x0A (CDC-Data)
 }
 
 // EnableHID enables HID. This function must be executed from the init().

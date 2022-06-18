@@ -1999,6 +1999,14 @@ var (
 	usbSetInterface  uint8
 )
 
+type USBCDC struct {
+	configured bool
+}
+
+var (
+	USBx = &USBCDC{}
+)
+
 // USBCDC のコンフィグではなく USB Device のコンフィグ (samd51 依存)
 // Configure the USB CDC interface. The config is here for compatibility with the UART interface.
 func (usbcdc *USBCDC) Configure(config UARTConfig) {
@@ -2374,6 +2382,14 @@ func SendUSBInPacket(ep uint32, data []byte) bool {
 	return true
 }
 
+// SendUSBInPacket sends a packet for USBHID (interrupt in / bulk in).
+func SendUSBInPacket2(ep uint32, data []byte) bool {
+	sam.PORT.GROUP[0].OUTTGL.Set(1 << 2) // wioterminal.BCM17.Toggle()
+
+	sendUSBPacket(ep, data, 0)
+	return true
+}
+
 //go:noinline
 func sendUSBPacket(ep uint32, data []byte, maxsize uint16) {
 	l := uint16(len(data))
@@ -2392,6 +2408,15 @@ func sendUSBPacket(ep uint32, data []byte, maxsize uint16) {
 	usbEndpointDescriptors[ep].DeviceDescBank[1].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask << usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos)
 	usbEndpointDescriptors[ep].DeviceDescBank[1].PCKSIZE.SetBits((uint32(l) & usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask) << usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos)
 }
+
+const cdcLineInfoSize = 7
+
+var (
+	errUSBCDCBufferEmpty      = errors.New("USB-CDC buffer empty")
+	errUSBCDCWriteByteTimeout = errors.New("USB-CDC write byte timeout")
+	errUSBCDCReadTimeout      = errors.New("USB-CDC read timeout")
+	errUSBCDCBytesRead        = errors.New("USB-CDC invalid number of bytes read")
+)
 
 func ReceiveUSBControlPacket() ([cdcLineInfoSize]byte, error) {
 	var b [cdcLineInfoSize]byte
@@ -2434,26 +2459,6 @@ func ReceiveUSBControlPacket() ([cdcLineInfoSize]byte, error) {
 	copy(b[:7], udd_ep_out_cache_buffer[0][:7])
 
 	return b, nil
-}
-
-func handleEndpoint(ep uint32) {
-	// get data
-	count := int((usbEndpointDescriptors[ep].DeviceDescBank[0].PCKSIZE.Get() >>
-		usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos) & usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask)
-
-	// move to ring buffer
-	for i := 0; i < count; i++ {
-		USB.Receive(byte((udd_ep_out_cache_buffer[ep][i] & 0xFF)))
-	}
-
-	// set byte count to zero
-	usbEndpointDescriptors[ep].DeviceDescBank[0].PCKSIZE.ClearBits(usb_DEVICE_PCKSIZE_BYTE_COUNT_Mask << usb_DEVICE_PCKSIZE_BYTE_COUNT_Pos)
-
-	// set multi packet size to 64
-	usbEndpointDescriptors[ep].DeviceDescBank[0].PCKSIZE.SetBits(64 << usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Pos)
-
-	// set ready for next data
-	setEPSTATUSCLR(ep, sam.USB_DEVICE_ENDPOINT_EPSTATUSCLR_BK0RDY)
 }
 
 func handleEndpointRx(ep uint32) []byte {
