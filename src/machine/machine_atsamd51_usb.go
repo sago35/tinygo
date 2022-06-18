@@ -21,13 +21,6 @@ const (
 	usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Mask = 0x3FFF
 )
 
-type USBDevice struct {
-}
-
-var (
-	USB = &USBDevice{}
-)
-
 // Configure the USB peripheral. The config is here for compatibility with the UART interface.
 func (dev *USBDevice) Configure(config UARTConfig) {
 	// reset USB interface
@@ -152,8 +145,8 @@ func handleUSBIRQ(interrupt.Interrupt) {
 			ok = handleStandardSetup(setup)
 		} else {
 			// Class Interface Requests
-			if setup.WIndex < uint16(len(handleCallbackSetup)) && handleCallbackSetup[setup.WIndex] != nil {
-				ok = handleCallbackSetup[setup.WIndex](setup)
+			if setup.WIndex < uint16(len(callbackUSBSetup)) && callbackUSBSetup[setup.WIndex] != nil {
+				ok = callbackUSBSetup[setup.WIndex](setup)
 			}
 		}
 
@@ -183,13 +176,13 @@ func handleUSBIRQ(interrupt.Interrupt) {
 
 		if (epFlags & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0) > 0 {
 			buf := handleEndpointRx(i)
-			if handleEndpointRx2[i] != nil {
-				handleEndpointRx2[i](buf)
+			if callbackUSBRx[i] != nil {
+				callbackUSBRx[i](buf)
 			}
 			setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0)
 		} else if (epFlags & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1) > 0 {
-			if handleEndpointTx2[i] != nil {
-				handleEndpointTx2[i]()
+			if callbackUSBTx[i] != nil {
+				callbackUSBTx[i]()
 			}
 		}
 	}
@@ -312,8 +305,6 @@ func handleUSBSetAddress(setup USBSetup) bool {
 
 // SendUSBInPacket sends a packet for USBHID (interrupt in / bulk in).
 func SendUSBInPacket(ep uint32, data []byte) bool {
-	sam.PORT.GROUP[0].OUTTGL.Set(1 << 2) // wioterminal.BCM17.Toggle()
-
 	sendUSBPacket(ep, data, 0)
 
 	// clear transfer complete flag
@@ -322,14 +313,6 @@ func SendUSBInPacket(ep uint32, data []byte) bool {
 	// send data by setting bank ready
 	setEPSTATUSSET(ep, sam.USB_DEVICE_ENDPOINT_EPSTATUSSET_BK1RDY)
 
-	return true
-}
-
-// SendUSBInPacket sends a packet for USBHID (interrupt in / bulk in).
-func SendUSBInPacket2(ep uint32, data []byte) bool {
-	sam.PORT.GROUP[0].OUTTGL.Set(1 << 2) // wioterminal.BCM17.Toggle()
-
-	sendUSBPacket(ep, data, 0)
 	return true
 }
 
