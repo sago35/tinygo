@@ -22,13 +22,13 @@ const (
 
 var (
 	sendOnEP0DATADONE struct {
-		ptr   *byte
-		count int
+		ptr    *byte
+		count  int
+		offset int
 	}
-	epinen                   uint32
-	epouten                  uint32
-	easyDMABusy              volatile.Register8
-	epout0data_setlinecoding bool
+	epinen      uint32
+	epouten     uint32
+	easyDMABusy volatile.Register8
 )
 
 // enterCriticalSection is used to protect access to easyDMA - only one thing
@@ -111,22 +111,27 @@ func handleUSBIRQ(interrupt.Interrupt) {
 	if nrf.USBD.EVENTS_EP0DATADONE.Get() == 1 {
 		// done sending packet - either need to send another or enter status stage
 		nrf.USBD.EVENTS_EP0DATADONE.Set(0)
-		if epout0data_setlinecoding {
-			nrf.USBD.EPOUT[0].PTR.Set(uint32(uintptr(unsafe.Pointer(&udd_ep_out_cache_buffer[0]))))
-			nrf.USBD.EPOUT[0].MAXCNT.Set(64)
-			nrf.USBD.TASKS_STARTEPOUT[0].Set(1)
-			return
-		}
 		if sendOnEP0DATADONE.ptr != nil {
 			// previous data was too big for one packet, so send a second
+			ptr := sendOnEP0DATADONE.ptr
+			count := sendOnEP0DATADONE.count
+			if count > usbEndpointPacketSize {
+				sendOnEP0DATADONE.offset += usbEndpointPacketSize
+				sendOnEP0DATADONE.ptr = &udd_ep_in_cache_buffer[0][sendOnEP0DATADONE.offset]
+				count = usbEndpointPacketSize
+			}
+			sendOnEP0DATADONE.count -= count
 			sendViaEPIn(
 				0,
-				sendOnEP0DATADONE.ptr,
-				sendOnEP0DATADONE.count,
+				ptr,
+				count,
 			)
 
 			// clear, so we know we're done
-			sendOnEP0DATADONE.ptr = nil
+			if sendOnEP0DATADONE.count == 0 {
+				sendOnEP0DATADONE.ptr = nil
+				sendOnEP0DATADONE.offset = 0
+			}
 		} else {
 			// no more data, so set status stage
 			SendZlp() // nrf.USBD.TASKS_EP0STATUS.Set(1)
@@ -169,12 +174,13 @@ func handleUSBIRQ(interrupt.Interrupt) {
 			// Check if endpoint has a pending interrupt
 			inDataDone := epDataStatus&(nrf.USBD_EPDATASTATUS_EPIN1<<(i-1)) > 0
 			outDataDone := epDataStatus&(nrf.USBD_EPDATASTATUS_EPOUT1<<(i-1)) > 0
-			dbg.Pin3.Toggle()
 			if inDataDone {
 				//if callbackUSBTx[i] != nil {
 				//	callbackUSBTx[i]()
 				//}
 			} else if outDataDone {
+				dbg.Pin5.Toggle()
+				// まだこの辺りがうまく動かない
 				buf := handleEndpointRx(i)
 				if callbackUSBRx[i] != nil {
 					callbackUSBRx[i](buf)
@@ -237,6 +243,7 @@ func initEndpoint(ep, config uint32) {
 
 // SendUSBInPacket sends a packet for USBHID (interrupt in / bulk in).
 func SendUSBInPacket(ep uint32, data []byte) bool {
+	dbg.Pin5.Toggle()
 	sendUSBPacket(ep, data, 0)
 
 	// clear transfer complete flag
@@ -253,7 +260,8 @@ func sendUSBPacket(ep uint32, data []byte, maxsize uint16) {
 	}
 	copy(udd_ep_in_cache_buffer[ep][:], data[:count])
 	if ep == 0 && count > usbEndpointPacketSize {
-		sendOnEP0DATADONE.ptr = &udd_ep_in_cache_buffer[ep][usbEndpointPacketSize]
+		sendOnEP0DATADONE.offset = usbEndpointPacketSize
+		sendOnEP0DATADONE.ptr = &udd_ep_in_cache_buffer[ep][sendOnEP0DATADONE.offset]
 		sendOnEP0DATADONE.count = count - usbEndpointPacketSize
 		count = usbEndpointPacketSize
 	}

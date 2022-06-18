@@ -1,6 +1,7 @@
 package midi
 
 import (
+	"examples/dbg"
 	"machine"
 )
 
@@ -41,6 +42,7 @@ func (m *midi) SetCallback(callbackRx func([]byte)) {
 }
 
 func (m *midi) Write(b []byte) (n int, err error) {
+	dbg.Pin2.Toggle()
 	i := 0
 	for i = 0; i < len(b); i += 4 {
 		m.tx(b[i : i+4])
@@ -57,6 +59,7 @@ func (m *midi) sendUSBPacket(b []byte) {
 func (m *midi) Callback() {
 	m.waitTxc = false
 	if b, ok := m.buf.Get(); ok {
+		dbg.Pin4.Toggle()
 		m.waitTxc = true
 		m.sendUSBPacket(b)
 	}
@@ -73,6 +76,7 @@ func (m *midi) tx(b []byte) {
 
 // from BulkOut
 func (m *midi) CallbackRx(b []byte) {
+	dbg.Pin3.Toggle()
 	if m.callbackFuncRx != nil {
 		m.callbackFuncRx(b)
 	}
