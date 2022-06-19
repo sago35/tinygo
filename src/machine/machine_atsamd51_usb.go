@@ -179,7 +179,6 @@ func handleUSBIRQ(interrupt.Interrupt) {
 			if callbackUSBRx[i] != nil {
 				callbackUSBRx[i](buf)
 			}
-			setEPINTFLAG(i, sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0)
 		} else if (epFlags & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1) > 0 {
 			if callbackUSBTx[i] != nil {
 				callbackUSBTx[i]()
