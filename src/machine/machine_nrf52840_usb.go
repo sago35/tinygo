@@ -179,12 +179,11 @@ func handleUSBIRQ(interrupt.Interrupt) {
 				//	callbackUSBTx[i]()
 				//}
 			} else if outDataDone {
-				dbg.Pin5.Toggle()
-				// まだこの辺りがうまく動かない
-				buf := handleEndpointRx(i)
-				if callbackUSBRx[i] != nil {
-					callbackUSBRx[i](buf)
-				}
+				enterCriticalSection()
+				nrf.USBD.EPOUT[i].PTR.Set(uint32(uintptr(unsafe.Pointer(&udd_ep_out_cache_buffer[i]))))
+				count := nrf.USBD.SIZE.EPOUT[i].Get()
+				nrf.USBD.EPOUT[i].MAXCNT.Set(count)
+				nrf.USBD.TASKS_STARTEPOUT[i].Set(1)
 			}
 		}
 	}
@@ -193,13 +192,11 @@ func handleUSBIRQ(interrupt.Interrupt) {
 	for i := 0; i < len(endPoints); i++ {
 		if nrf.USBD.EVENTS_ENDEPOUT[i].Get() > 0 {
 			nrf.USBD.EVENTS_ENDEPOUT[i].Set(0)
-			if i == usb_CDC_ENDPOINT_OUT {
-				buf := handleEndpointRx(uint32(i))
-				if callbackUSBRx[i] != nil {
-					callbackUSBRx[i](buf)
-				}
+			buf := handleEndpointRx(uint32(i))
+			if callbackUSBRx[i] != nil {
+				callbackUSBRx[i](buf)
 			}
-			//exitCriticalSection()
+			exitCriticalSection()
 		}
 	}
 }
@@ -243,7 +240,6 @@ func initEndpoint(ep, config uint32) {
 
 // SendUSBInPacket sends a packet for USBHID (interrupt in / bulk in).
 func SendUSBInPacket(ep uint32, data []byte) bool {
-	dbg.Pin5.Toggle()
 	sendUSBPacket(ep, data, 0)
 
 	// clear transfer complete flag

@@ -2,7 +2,6 @@ package cdc
 
 import (
 	"errors"
-	"examples/dbg"
 	"machine"
 	"runtime/volatile"
 )
@@ -113,7 +112,6 @@ func (usbcdc *USBCDC) Configure(config machine.UARTConfig) {
 func (usbcdc *USBCDC) Flush() {
 	usbcdc.waitTxc = false
 	if b, ok := usbcdc.Buffer2.Get(); ok {
-		dbg.Pin4.Toggle()
 		usbcdc.waitTxc = true
 		machine.SendUSBInPacket(cdcEndpointIn, b)
 	}
@@ -121,9 +119,7 @@ func (usbcdc *USBCDC) Flush() {
 
 // Write data to the USBCDC.
 func (usbcdc *USBCDC) Write(data []byte) (n int, err error) {
-	dbg.Pin2.Toggle()
 	if usbLineInfo.lineState > 0 {
-		dbg.Pin4.Toggle()
 		for i := 0; i < len(data); i += 128 {
 			endpos := i + 128
 			if endpos > len(data) {
@@ -164,7 +160,6 @@ func cdcCallbackRx(b []byte) {
 }
 
 func cdcSetup(setup machine.USBSetup) bool {
-	dbg.Pin5.Toggle()
 	if setup.BmRequestType == usb_REQUEST_DEVICETOHOST_CLASS_INTERFACE {
 		if setup.BRequest == usb_CDC_GET_LINE_CODING {
 			var b [cdcLineInfoSize]byte
@@ -196,8 +191,6 @@ func cdcSetup(setup machine.USBSetup) bool {
 		}
 
 		if setup.BRequest == usb_CDC_SET_CONTROL_LINE_STATE {
-			dbg.Pin4.Toggle()
-			dbg.Printf("scls: %02X\n", setup.WValueL)
 			usbLineInfo.lineState = setup.WValueL
 		}
 
