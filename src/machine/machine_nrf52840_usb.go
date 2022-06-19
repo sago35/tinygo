@@ -6,18 +6,9 @@ package machine
 import (
 	"device/arm"
 	"device/nrf"
-	"examples/dbg"
 	"runtime/interrupt"
 	"runtime/volatile"
 	"unsafe"
-)
-
-const (
-	usbcdcTxSizeMask          uint8 = 0x3F
-	usbcdcTxBankMask          uint8 = ^usbcdcTxSizeMask
-	usbcdcTxBank1st           uint8 = 0x00
-	usbcdcTxBank2nd           uint8 = usbcdcTxSizeMask + 1
-	usbcdcTxMaxRetriesAllowed uint8 = 5
 )
 
 var (
@@ -48,15 +39,15 @@ func exitCriticalSection() {
 	easyDMABusy.ClearBits(1)
 }
 
-// Configure the USB CDC interface. The config is here for compatibility with the UART interface.
+// Configure the USB peripheral. The config is here for compatibility with the UART interface.
 func (dev *USBDevice) Configure(config UARTConfig) {
 	// Enable IRQ. Make sure this is higher than the SWI2 interrupt handler so
 	// that it is possible to print to the console from a BLE interrupt. You
 	// shouldn't generally do that but it is useful for debugging and panic
 	// logging.
-	ix := interrupt.New(nrf.IRQ_USBD, handleUSBIRQ)
-	ix.SetPriority(0x40) // interrupt priority 2 (lower number means more important)
-	ix.Enable()
+	intr := interrupt.New(nrf.IRQ_USBD, handleUSBIRQ)
+	intr.SetPriority(0x40) // interrupt priority 2 (lower number means more important)
+	intr.Enable()
 
 	// enable USB
 	nrf.USBD.ENABLE.Set(1)
@@ -73,22 +64,11 @@ func (dev *USBDevice) Configure(config UARTConfig) {
 	nrf.USBD.USBPULLUP.Set(0)
 }
 
-func handleUSBIRQ(interrupt.Interrupt) {
+func handleUSBIRQ(intr interrupt.Interrupt) {
 	if nrf.USBD.EVENTS_SOF.Get() == 1 {
 		nrf.USBD.EVENTS_SOF.Set(0)
 
-		for i := 1; i < len(endPoints); i++ {
-			if (endPoints[i] & usbEndpointIn) > 0 {
-				if callbackUSBTx[i] != nil {
-					callbackUSBTx[i]()
-				}
-			} else {
-			}
-		}
 		// if you want to blink LED showing traffic, this would be the place...
-		dbg.Pin0.Toggle()
-	} else {
-		dbg.Pin1.Toggle()
 	}
 
 	// USBD ready event
@@ -175,9 +155,9 @@ func handleUSBIRQ(interrupt.Interrupt) {
 			inDataDone := epDataStatus&(nrf.USBD_EPDATASTATUS_EPIN1<<(i-1)) > 0
 			outDataDone := epDataStatus&(nrf.USBD_EPDATASTATUS_EPOUT1<<(i-1)) > 0
 			if inDataDone {
-				//if callbackUSBTx[i] != nil {
-				//	callbackUSBTx[i]()
-				//}
+				if callbackUSBTx[i] != nil {
+					callbackUSBTx[i]()
+				}
 			} else if outDataDone {
 				enterCriticalSection()
 				nrf.USBD.EPOUT[i].PTR.Set(uint32(uintptr(unsafe.Pointer(&udd_ep_out_cache_buffer[i]))))

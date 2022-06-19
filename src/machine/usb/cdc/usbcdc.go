@@ -110,10 +110,10 @@ func (usbcdc *USBCDC) Configure(config machine.UARTConfig) {
 
 // Flush flushes buffered data.
 func (usbcdc *USBCDC) Flush() {
-	usbcdc.waitTxc = false
 	if b, ok := usbcdc.Buffer2.Get(); ok {
-		usbcdc.waitTxc = true
 		machine.SendUSBInPacket(cdcEndpointIn, b)
+	} else {
+		usbcdc.waitTxc = false
 	}
 }
 
@@ -128,6 +128,7 @@ func (usbcdc *USBCDC) Write(data []byte) (n int, err error) {
 			usbcdc.Buffer2.Put(data[i:endpos])
 		}
 		if !usbcdc.waitTxc {
+			usbcdc.waitTxc = true
 			usbcdc.Flush()
 		}
 	}

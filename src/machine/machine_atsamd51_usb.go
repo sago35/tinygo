@@ -56,7 +56,7 @@ func (dev *USBDevice) Configure(config UARTConfig) {
 	// enable USB
 	sam.USB_DEVICE.CTRLA.SetBits(sam.USB_DEVICE_CTRLA_ENABLE)
 
-	// enable IRQ at highest priority
+	// enable IRQ
 	interrupt.New(sam.IRQ_USB_OTHER, handleUSBIRQ).Enable()
 	interrupt.New(sam.IRQ_USB_SOF_HSOF, handleUSBIRQ).Enable()
 	interrupt.New(sam.IRQ_USB_TRCPT0, handleUSBIRQ).Enable()
@@ -106,7 +106,7 @@ func handlePadCalibration() {
 	sam.USB_DEVICE.PADCAL.SetBits(calibTrim << sam.USB_DEVICE_PADCAL_TRIM_Pos)
 }
 
-func handleUSBIRQ(interrupt.Interrupt) {
+func handleUSBIRQ(intr interrupt.Interrupt) {
 	// reset all interrupt flags
 	flags := sam.USB_DEVICE.INTFLAG.Get()
 	sam.USB_DEVICE.INTFLAG.Set(flags)
@@ -173,7 +173,6 @@ func handleUSBIRQ(interrupt.Interrupt) {
 		// Check if endpoint has a pending interrupt
 		epFlags := getEPINTFLAG(i)
 		setEPINTFLAG(i, epFlags)
-
 		if (epFlags & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0) > 0 {
 			buf := handleEndpointRx(i)
 			if callbackUSBRx[i] != nil {
@@ -271,7 +270,6 @@ func initEndpoint(ep, config uint32) {
 
 		// Enable Setup-Received interrupt
 		setEPINTENSET(0, sam.USB_DEVICE_ENDPOINT_EPINTENSET_RXSTP)
-
 	}
 }
 
@@ -302,7 +300,7 @@ func handleUSBSetAddress(setup USBSetup) bool {
 	return true
 }
 
-// SendUSBInPacket sends a packet for USBHID (interrupt in / bulk in).
+// SendUSBInPacket sends a packet for USB (interrupt in / bulk in).
 func SendUSBInPacket(ep uint32, data []byte) bool {
 	sendUSBPacket(ep, data, 0)
 
@@ -357,7 +355,7 @@ func ReceiveUSBControlPacket() ([cdcLineInfoSize]byte, error) {
 
 	// Wait until OUT transfer is completed.
 	timeout = 300000
-	for (getEPINTFLAG(0) & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT1) == 0 {
+	for (getEPINTFLAG(0) & sam.USB_DEVICE_ENDPOINT_EPINTFLAG_TRCPT0) == 0 {
 		timeout--
 		if timeout == 0 {
 			return b, errUSBCDCReadTimeout

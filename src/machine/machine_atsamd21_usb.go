@@ -21,7 +21,7 @@ const (
 	usb_DEVICE_PCKSIZE_MULTI_PACKET_SIZE_Mask = 0x3FFF
 )
 
-// Configure the USB CDC interface. The config is here for compatibility with the UART interface.
+// Configure the USB peripheral. The config is here for compatibility with the UART interface.
 func (dev *USBDevice) Configure(config UARTConfig) {
 	// reset USB interface
 	sam.USB_DEVICE.CTRLA.SetBits(sam.USB_DEVICE_CTRLA_SWRST)
@@ -57,8 +57,7 @@ func (dev *USBDevice) Configure(config UARTConfig) {
 	sam.USB_DEVICE.CTRLA.SetBits(sam.USB_DEVICE_CTRLA_ENABLE)
 
 	// enable IRQ
-	intr := interrupt.New(sam.IRQ_USB, handleUSB)
-	intr.Enable()
+	interrupt.New(sam.IRQ_USB, handleUSBIRQ).Enable()
 }
 
 func handlePadCalibration() {
@@ -104,7 +103,7 @@ func handlePadCalibration() {
 	sam.USB_DEVICE.PADCAL.SetBits(calibTrim << sam.USB_DEVICE_PADCAL_TRIM_Pos)
 }
 
-func handleUSB(intr interrupt.Interrupt) {
+func handleUSBIRQ(intr interrupt.Interrupt) {
 	// reset all interrupt flags
 	flags := sam.USB_DEVICE.INTFLAG.Get()
 	sam.USB_DEVICE.INTFLAG.Set(flags)
@@ -113,9 +112,6 @@ func handleUSB(intr interrupt.Interrupt) {
 	if (flags & sam.USB_DEVICE_INTFLAG_EORST) > 0 {
 		// Configure control endpoint
 		initEndpoint(0, usb_ENDPOINT_TYPE_CONTROL)
-
-		// Enable Setup-Received interrupt
-		setEPINTENSET(0, sam.USB_DEVICE_EPINTENSET_RXSTP)
 
 		usbConfiguration = 0
 
@@ -269,6 +265,7 @@ func initEndpoint(ep, config uint32) {
 		// NAK on endpoint OUT to show we are ready to receive control data
 		setEPSTATUSSET(ep, sam.USB_DEVICE_EPSTATUSSET_BK0RDY)
 
+		// Enable Setup-Received interrupt
 		setEPINTENSET(0, sam.USB_DEVICE_EPINTENSET_RXSTP)
 	}
 }
@@ -300,7 +297,7 @@ func handleUSBSetAddress(setup USBSetup) bool {
 	return true
 }
 
-// SendUSBInPacket sends a packet for USBHID (interrupt / in).
+// SendUSBInPacket sends a packet for USB (interrupt in / bulk in).
 func SendUSBInPacket(ep uint32, data []byte) bool {
 	sendUSBPacket(ep, data, 0)
 
