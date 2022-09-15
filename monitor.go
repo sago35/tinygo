@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -11,10 +10,6 @@ import (
 	"github.com/tinygo-org/tinygo/builder"
 	"github.com/tinygo-org/tinygo/compileopts"
 	"go.bug.st/serial"
-)
-
-var (
-	errorMonitorReadError = errors.New("read error")
 )
 
 // Monitor connects to the given port and reads/writes the serial port.
