@@ -77,7 +77,7 @@ func Monitor(port string, options *compileopts.Options) error {
 		for {
 			n, err := p.Read(buf)
 			if err != nil {
-				errCh <- errorMonitorReadError
+				errCh <- fmt.Errorf("read error: %w", err)
 				return
 			}
 
