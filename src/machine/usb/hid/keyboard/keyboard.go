@@ -196,14 +196,14 @@ const (
 )
 
 var (
-	txb     [80 * 2]byte
+	txb     [256]byte
 	Keys    [5][18]Keycode // [row][col]Keycode
 	flash   *machine.FlashBuffer
 	Changed bool
 )
 
 func LoadKeys() error {
-	flash.Seek(0, 0)
+	flash.Seek(0x00300000, 0)
 	_, err := flash.Read(txb[:80*2])
 	if err != nil {
 		return err
@@ -214,23 +214,23 @@ func LoadKeys() error {
 	}
 
 	for i := 0; i < 80; i++ {
-		Keys[i/18][i%18] = (Keycode(txb[i/2]) << 8) + Keycode(txb[i/2+1])
+		Keys[i/18][i%18] = (Keycode(txb[i*2+0]) << 8) + Keycode(txb[i*2+1])
 	}
 
 	return nil
 }
 
 func SaveKeys() error {
-	return nil
-
 	for i := 0; i < 80; i++ {
+		fmt.Printf("%d, %d: %v\n", i/18, i%18, Keys[i/18][i%18])
 		x := Keys[i/18][i%18]
-		txb[i/2+0] = byte(x >> 8)
-		txb[i/2+1] = byte(x)
+		txb[i*2+0] = byte(x >> 8)
+		txb[i*2+1] = byte(x)
+		fmt.Printf("  %02X %02X\n", txb[i*2+0], txb[i*2+1])
 	}
 
-	flash.Seek(0, 0)
-	_, err := flash.Write(txb[:80*2])
+	flash.Seek(0x00300000, 0)
+	_, err := flash.Write(txb[:256])
 	if err != nil {
 		return err
 	}
