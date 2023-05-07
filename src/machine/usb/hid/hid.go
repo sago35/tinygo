@@ -23,6 +23,7 @@ const (
 
 type hidDevicer interface {
 	Handler() bool
+	RxHandler([]byte) bool
 }
 
 var devices [5]hidDevicer
@@ -32,7 +33,7 @@ var size int
 // calls machine.EnableHID for USB configuration
 func SetHandler(d hidDevicer) {
 	if size == 0 {
-		machine.EnableHID(handler, nil, setupHandler)
+		machine.EnableHID(handler, rxHandler, setupHandler)
 	}
 
 	devices[size] = d
@@ -45,6 +46,17 @@ func handler() {
 			continue
 		}
 		if done := d.Handler(); done {
+			return
+		}
+	}
+}
+
+func rxHandler(b []byte) {
+	for _, d := range devices {
+		if d == nil {
+			continue
+		}
+		if done := d.RxHandler(b); done {
 			return
 		}
 	}
