@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"machine"
 	"machine/usb/hid"
+	"time"
 )
 
 // from usb-hid-keyboard.go
@@ -63,6 +64,101 @@ func init() {
 		Keyboard = newKeyboard()
 		hid.SetHandler(Keyboard)
 	}
+
+	go func() {
+		for {
+			time.Sleep(100 * time.Millisecond)
+			if Changed && Changed2 {
+				fmt.Printf("Changed\n")
+				Changed = false
+				Changed2 = false
+
+				err := machine.Flash.EraseBlocks(0, 1)
+				if err != nil {
+					fmt.Printf("err: %s\n", err.Error())
+					return
+				}
+
+				offset := int64(0)
+				for l := 0; l < layer; l++ {
+					for r := 0; r < row; r++ {
+						for c := 0; c < col; c++ {
+							wbuf[2*c+0] = byte(Keys[l][r][c] >> 8)
+							wbuf[2*c+1] = byte(Keys[l][r][c])
+						}
+
+						fmt.Printf("WriteAt(wbuf[:], %d) : % X\n", 4+offset, wbuf[:])
+						_, err := machine.Flash.WriteAt(wbuf[:], 4+offset)
+						if err != nil {
+							fmt.Printf("err: %s\n", err.Error())
+							return
+						}
+						offset += int64(len(wbuf[:]))
+					}
+				}
+
+				sz := machine.Flash.Size()
+				keyword := [4]byte{}
+				keyword[0] = byte(sz >> 24)
+				keyword[1] = byte(sz >> 16)
+				keyword[2] = byte(sz >> 8)
+				keyword[3] = byte(sz >> 0)
+				_, err = machine.Flash.WriteAt(keyword[:], 0)
+				if err != nil {
+					fmt.Printf("size write error\n")
+					return
+				}
+
+				fmt.Printf("done\n")
+			}
+		}
+	}()
+}
+
+func Load() error {
+	keyword := [4]byte{}
+	_, err := machine.Flash.ReadAt(keyword[:], 0)
+	if err != nil {
+		return err
+	}
+	size := (int64(keyword[0]) << 24) +
+		(int64(keyword[1]) << 16) +
+		(int64(keyword[2]) << 8) +
+		(int64(keyword[3]) << 0)
+	if size != machine.Flash.Size() {
+		fmt.Printf("not loaded\n")
+		//sz := machine.Flash.Size()
+		//keyword[0] = byte(sz >> 24)
+		//keyword[1] = byte(sz >> 16)
+		//keyword[2] = byte(sz >> 8)
+		//keyword[3] = byte(sz >> 0)
+		//keyword[3] = 0xFF
+		//_, err := machine.Flash.WriteAt(keyword[:], 0)
+		//if err != nil {
+		//	return err
+		//}
+	} else {
+		fmt.Printf("loaded\n")
+		buf := [2 * col]byte{}
+		offset := int64(0)
+		for l := 0; l < layer; l++ {
+			for r := 0; r < row; r++ {
+				_, err := machine.Flash.ReadAt(buf[:], 4+offset)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("% X\n", buf[:])
+
+				for c := 0; c < col; c++ {
+					Keys[l][r][c] = Keycode((uint16(buf[2*c]) << 8) + uint16(buf[2*c+1]))
+					fmt.Printf("Keys[%d][%d][%d] = %04X\n", l, r, c, Keys[l][r][c])
+				}
+
+				offset += int64(len(buf))
+			}
+		}
+	}
+	return nil
 }
 
 // New returns the USB hid-keyboard port.
@@ -99,9 +195,11 @@ const (
 )
 
 var (
-	txb     [256]byte
-	Keys    [layer][row][col]Keycode // [row][col]Keycode
-	Changed bool
+	txb      [256]byte
+	Keys     [layer][row][col]Keycode // [row][col]Keycode
+	Changed  bool
+	Changed2 bool
+	wbuf     [col * 2]byte
 )
 
 const (
@@ -155,6 +253,29 @@ func (kb *keyboard) RxHandler(b []byte) bool {
 				txb[i*2+4+1] = 4 // A
 			}
 		}
+		if offset == 0x0134 {
+			Changed2 = true
+		}
+
+		//if Changed {
+		//	if offset == 0 {
+		//		sz := machine.Flash.Size()
+		//		keyword := [4]byte{}
+		//		keyword[0] = byte(sz >> 24)
+		//		keyword[1] = byte(sz >> 16)
+		//		keyword[2] = byte(sz >> 8)
+		//		keyword[3] = byte(sz >> 0)
+		//		_, err := machine.Flash.WriteAt(keyword[:], 0)
+		//		if err != nil {
+		//			return false
+		//		}
+		//	}
+		//	_, err := machine.Flash.WriteAt(txb[4:], 4+int64(offset))
+		//	if err != nil {
+		//		return false
+		//	}
+		//}
+
 	case 0x0D:
 		// DynamicKeymapMacroGetBufferSizeCommand
 		txb[1] = 0x07
@@ -165,6 +286,8 @@ func (kb *keyboard) RxHandler(b []byte) bool {
 	case 0x0E:
 		// DynamicKeymapMacroGetBufferCommand
 	case 0x02:
+		Changed = false
+		Changed2 = false
 	case 0x05:
 		fmt.Printf("XXXXXXXXX % X\n", b)
 		Keys[b[1]][b[2]][b[3]] = Keycode((uint16(b[4]) << 8) + uint16(b[5]))
