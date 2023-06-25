@@ -288,9 +288,9 @@ func EnableHID(txHandler func(), rxHandler func([]byte), setupHandler func(usb.S
 	usbDescriptorConfig |= usb.DescriptorConfigHID
 	endPoints[usb.HID_ENDPOINT_IN] = (usb.ENDPOINT_TYPE_INTERRUPT | usb.EndpointIn)
 	usbTxHandler[usb.HID_ENDPOINT_IN] = txHandler
-	endPoints[usb.MIDI_ENDPOINT_OUT] = (usb.ENDPOINT_TYPE_INTERRUPT | usb.EndpointOut)
-	endPoints[usb.MIDI_ENDPOINT_IN] = (usb.ENDPOINT_TYPE_INTERRUPT | usb.EndpointIn)
-	usbRxHandler[usb.MIDI_ENDPOINT_OUT] = rxHandler
+	endPoints[usb.HID_ENDPOINT_OUT2] = (usb.ENDPOINT_TYPE_INTERRUPT | usb.EndpointOut)
+	endPoints[usb.HID_ENDPOINT_IN2] = (usb.ENDPOINT_TYPE_INTERRUPT | usb.EndpointIn)
+	usbRxHandler[usb.HID_ENDPOINT_OUT2] = rxHandler
 	usbSetupHandler[usb.HID_INTERFACE] = setupHandler // 0x03 (HID - Human Interface Device)
 }
 
