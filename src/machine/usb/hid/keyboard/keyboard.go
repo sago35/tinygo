@@ -62,104 +62,103 @@ func init() {
 	if Keyboard == nil {
 		Keyboard = newKeyboard()
 		hid.SetHandler(Keyboard)
-		flash = machine.OpenFlashBuffer(machine.Flash, machine.FlashDataStart())
-		err := LoadKeys()
-		if err != nil {
-			Keys[0][0] = 0
-			Keys[0][1] = 0x0FFF & KeyEsc
-			Keys[0][2] = 0x0FFF & Key1
-			Keys[0][3] = 0x0FFF & Key2
-			Keys[0][4] = 0x0FFF & Key3
-			Keys[0][5] = 0x0FFF & Key4
-			Keys[0][6] = 0x0FFF & Key5
-			Keys[0][7] = 0x0FFF & Key6
-			Keys[0][8] = 0
-			Keys[0][9] = 0x0FFF & Key6
-			Keys[0][10] = 0x0FFF & Key7
-			Keys[0][11] = 0x0FFF & Key8
-			Keys[0][12] = 0x0FFF & Key9
-			Keys[0][13] = 0x0FFF & Key0
-			Keys[0][14] = 0x0FFF & KeyMinus
-			Keys[0][15] = 0x0FFF & KeyHat
-			Keys[0][16] = 0x0FFF & KeyBackslash2
-			Keys[0][17] = 0x0FFF & KeyBackspace
+		//err := LoadKeys()
+		//if err != nil {
+		//	Keys[0][0][0] = 0x0FFF & Key1
+		//	Keys[0][0][1] = 0x0FFF & Key2
+		//	Keys[0][0][2] = 0x0FFF & Key1
+		//	Keys[0][0][3] = 0x0FFF & Key2
+		//	Keys[0][0][4] = 0x0FFF & Key3
+		//	Keys[0][0][5] = 0x0FFF & Key4
+		//	Keys[0][0][6] = 0x0FFF & Key5
+		//	Keys[0][0][7] = 0x0FFF & Key6
+		//	Keys[0][0][8] = 0
+		//	Keys[0][0][9] = 0x0FFF & Key6
+		//	Keys[0][0][10] = 0x0FFF & Key7
+		//	Keys[0][0][11] = 0x0FFF & Key8
+		//	Keys[0][0][12] = 0x0FFF & Key9
+		//	Keys[0][0][13] = 0x0FFF & Key0
+		//	Keys[0][0][14] = 0x0FFF & KeyMinus
+		//	Keys[0][0][15] = 0x0FFF & KeyHat
+		//	Keys[0][0][16] = 0x0FFF & KeyBackslash2
+		//	Keys[0][0][17] = 0x0FFF & KeyBackspace
 
-			Keys[1][0] = 0
-			Keys[1][1] = 0x0FFF & KeyTab
-			Keys[1][2] = 0x0FFF & KeyQ
-			Keys[1][3] = 0x0FFF & KeyW
-			Keys[1][4] = 0x0FFF & KeyE
-			Keys[1][5] = 0x0FFF & KeyR
-			Keys[1][6] = 0x0FFF & KeyT
-			Keys[1][7] = 0
-			Keys[1][8] = 0x0FFF & KeyY
-			Keys[1][9] = 0x0FFF & KeyU
-			Keys[1][10] = 0x0FFF & KeyI
-			Keys[1][11] = 0x0FFF & KeyO
-			Keys[1][12] = 0x0FFF & KeyP
-			Keys[1][13] = 0x0FFF & KeyAt
-			Keys[1][14] = 0x0FFF & KeyLeftBrace
-			Keys[1][15] = 0x0FFF & KeyEnter
-			Keys[1][16] = 0
-			Keys[1][17] = 0
+		//	Keys[0][1][0] = 0
+		//	Keys[0][1][1] = 0x0FFF & KeyTab
+		//	Keys[0][1][2] = 0x0FFF & KeyQ
+		//	Keys[0][1][3] = 0x0FFF & KeyW
+		//	Keys[0][1][4] = 0x0FFF & KeyE
+		//	Keys[0][1][5] = 0x0FFF & KeyR
+		//	Keys[0][1][6] = 0x0FFF & KeyT
+		//	Keys[0][1][7] = 0
+		//	Keys[0][1][8] = 0x0FFF & KeyY
+		//	Keys[0][1][9] = 0x0FFF & KeyU
+		//	Keys[0][1][10] = 0x0FFF & KeyI
+		//	Keys[0][1][11] = 0x0FFF & KeyO
+		//	Keys[0][1][12] = 0x0FFF & KeyP
+		//	Keys[0][1][13] = 0x0FFF & KeyAt
+		//	Keys[0][1][14] = 0x0FFF & KeyLeftBrace
+		//	Keys[0][1][15] = 0x0FFF & KeyEnter
+		//	Keys[0][1][16] = 0
+		//	Keys[0][1][17] = 0
 
-			Keys[2][0] = 0
-			Keys[2][1] = 0x0FFF & KeyLeftCtrl
-			Keys[2][2] = 0x0FFF & KeyA
-			Keys[2][3] = 0x0FFF & KeyS
-			Keys[2][4] = 0x0FFF & KeyD
-			Keys[2][5] = 0x0FFF & KeyF
-			Keys[2][6] = 0x0FFF & KeyG
-			Keys[2][7] = 0
-			Keys[2][8] = 0x0FFF & KeyH
-			Keys[2][9] = 0x0FFF & KeyJ
-			Keys[2][10] = 0x0FFF & KeyK
-			Keys[2][11] = 0x0FFF & KeyL
-			Keys[2][12] = 0x0FFF & KeySemicolon
-			Keys[2][13] = 0x0FFF & KeyColon
-			Keys[2][14] = 0x0FFF & KeyRightBrace
-			Keys[2][15] = 0
-			Keys[2][16] = 0
-			Keys[2][17] = 0
+		//	Keys[0][2][0] = 0
+		//	Keys[0][2][1] = 0x0FFF & KeyLeftCtrl
+		//	Keys[0][2][2] = 0x0FFF & KeyA
+		//	Keys[0][2][3] = 0x0FFF & KeyS
+		//	Keys[0][2][4] = 0x0FFF & KeyD
+		//	Keys[0][2][5] = 0x0FFF & KeyF
+		//	Keys[0][2][6] = 0x0FFF & KeyG
+		//	Keys[0][2][7] = 0
+		//	Keys[0][2][8] = 0x0FFF & KeyH
+		//	Keys[0][2][9] = 0x0FFF & KeyJ
+		//	Keys[0][2][10] = 0x0FFF & KeyK
+		//	Keys[0][2][11] = 0x0FFF & KeyL
+		//	Keys[0][2][12] = 0x0FFF & KeySemicolon
+		//	Keys[0][2][13] = 0x0FFF & KeyColon
+		//	Keys[0][2][14] = 0x0FFF & KeyRightBrace
+		//	Keys[0][2][15] = 0
+		//	Keys[0][2][16] = 0
+		//	Keys[0][2][17] = 0
 
-			Keys[3][0] = 0
-			Keys[3][1] = 0x0FFF & KeyLeftShift
-			Keys[3][2] = 0x0FFF & KeyZ
-			Keys[3][3] = 0x0FFF & KeyX
-			Keys[3][4] = 0x0FFF & KeyC
-			Keys[3][5] = 0x0FFF & KeyV
-			Keys[3][6] = 0x0FFF & KeyB
-			Keys[3][7] = 0x0FFF & KeyB
-			Keys[3][8] = 0x0FFF & KeyN
-			Keys[3][9] = 0x0FFF & KeyM
-			Keys[3][10] = 0x0FFF & KeyComma
-			Keys[3][11] = 0x0FFF & KeyPeriod
-			Keys[3][12] = 0x0FFF & KeySlash
-			Keys[3][13] = 0x0FFF & KeyBackslash
-			Keys[3][14] = 0x0FFF & KeyUp
-			Keys[3][15] = 0x0FFF & KeyDelete
-			Keys[3][16] = 0
-			Keys[3][17] = 0
+		//	Keys[0][3][0] = 0
+		//	Keys[0][3][1] = 0x0FFF & KeyLeftShift
+		//	Keys[0][3][2] = 0x0FFF & KeyZ
+		//	Keys[0][3][3] = 0x0FFF & KeyX
+		//	Keys[0][3][4] = 0x0FFF & KeyC
+		//	Keys[0][3][5] = 0x0FFF & KeyV
+		//	Keys[0][3][6] = 0x0FFF & KeyB
+		//	Keys[0][3][7] = 0x0FFF & KeyB
+		//	Keys[0][3][8] = 0x0FFF & KeyN
+		//	Keys[0][3][9] = 0x0FFF & KeyM
+		//	Keys[0][3][10] = 0x0FFF & KeyComma
+		//	Keys[0][3][11] = 0x0FFF & KeyPeriod
+		//	Keys[0][3][12] = 0x0FFF & KeySlash
+		//	Keys[0][3][13] = 0x0FFF & KeyBackslash
+		//	Keys[0][3][14] = 0x0FFF & KeyUp
+		//	Keys[0][3][15] = 0x0FFF & KeyDelete
+		//	Keys[0][3][16] = 0
+		//	Keys[0][3][17] = 0
 
-			Keys[4][0] = 0x0FFF & KeyLeftCtrl
-			Keys[4][1] = 0x0FFF & KeyLeftCtrl
-			Keys[4][2] = 0x0FFF & KeyWindows
-			Keys[4][3] = 0x0FFF & KeyLeftAlt
-			Keys[4][4] = 0x0FFF & KeyMuhenkan
-			Keys[4][5] = 0x0FFF & KeySpace
-			Keys[4][6] = 0
-			Keys[4][7] = 0
-			Keys[4][8] = 0x0FFF & KeySpace
-			Keys[4][9] = 0x0FFF & KeyHenkan
-			Keys[4][10] = 0x0FFF & KeyHiragana
-			Keys[4][11] = 0x0FFF & KeyLeftAlt
-			Keys[4][12] = 0x0FFF & KeyPrintscreen
-			Keys[4][13] = 0x0FFF & KeyLeft
-			Keys[4][14] = 0x0FFF & KeyDown
-			Keys[4][15] = 0x0FFF & KeyRight
-			Keys[4][16] = 0
-			Keys[4][17] = 0
-		}
+		//	Keys[0][4][0] = 0x0FFF & KeyLeftCtrl
+		//	Keys[0][4][1] = 0x0FFF & KeyLeftCtrl
+		//	Keys[0][4][2] = 0x0FFF & KeyWindows
+		//	Keys[0][4][3] = 0x0FFF & KeyLeftAlt
+		//	Keys[0][4][4] = 0x0FFF & KeyMuhenkan
+		//	Keys[0][4][5] = 0x0FFF & KeySpace
+		//	Keys[0][4][6] = 0
+		//	Keys[0][4][7] = 0
+		//	Keys[0][4][8] = 0x0FFF & KeySpace
+		//	Keys[0][4][9] = 0x0FFF & KeyHenkan
+		//	Keys[0][4][10] = 0x0FFF & KeyHiragana
+		//	Keys[0][4][11] = 0x0FFF & KeyLeftAlt
+		//	Keys[0][4][12] = 0x0FFF & KeyPrintscreen
+		//	Keys[0][4][13] = 0x0FFF & KeyLeft
+		//	Keys[0][4][14] = 0x0FFF & KeyDown
+		//	Keys[0][4][15] = 0x0FFF & KeyRight
+		//	Keys[0][4][16] = 0
+		//	Keys[0][4][17] = 0
+		//}
 	}
 }
 
@@ -191,51 +190,53 @@ func (kb *keyboard) Handler() bool {
 }
 
 const (
-	col = 18
-	row = 5
+	layer = 6
+	col   = 4
+	row   = 7
 )
 
 var (
 	txb     [256]byte
-	Keys    [5][18]Keycode // [row][col]Keycode
-	flash   *machine.FlashBuffer
+	Keys    [layer][row][col]Keycode // [row][col]Keycode
 	Changed bool
 )
 
-func LoadKeys() error {
-	_, err := machine.Flash.ReadAt(txb[:80*2], 0)
-	if err != nil {
-		return err
-	}
-
-	if txb[0] == 0xFF && txb[1] == 0xFF {
-		return fmt.Errorf("flash has no data")
-	}
-
-	for i := 0; i < 80; i++ {
-		Keys[i/18][i%18] = (Keycode(txb[i*2+0]) << 8) + Keycode(txb[i*2+1])
-	}
-
-	return nil
-}
-
-func SaveKeys() error {
-	for i := 0; i < 80; i++ {
-		fmt.Printf("%d, %d: %v\n", i/18, i%18, Keys[i/18][i%18])
-		x := Keys[i/18][i%18]
-		txb[i*2+0] = byte(x >> 8)
-		txb[i*2+1] = byte(x)
-		fmt.Printf("  %02X %02X\n", txb[i*2+0], txb[i*2+1])
-	}
-
-	machine.Flash.EraseBlocks(0, 1)
-	_, err := machine.Flash.WriteAt(txb[:256], 0)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
+//func LoadKeys() error {
+//	return fmt.Errorf("flash has no data")
+//
+//	_, err := machine.Flash.ReadAt(txb[:80*2], 0)
+//	if err != nil {
+//		return err
+//	}
+//
+//	if txb[0] == 0xFF && txb[1] == 0xFF {
+//		return fmt.Errorf("flash has no data")
+//	}
+//
+//	for i := 0; i < 80; i++ {
+//		Keys[0][i/col][i%col] = (Keycode(txb[i*2+0]) << 8) + Keycode(txb[i*2+1])
+//	}
+//
+//	return nil
+//}
+//
+//func SaveKeys() error {
+//	for i := 0; i < 80; i++ {
+//		fmt.Printf("%d, %d: %v\n", i/col, i%col, Keys[0][i/col][i%col])
+//		x := Keys[0][i/col][i%col]
+//		txb[i*2+0] = byte(x >> 8)
+//		txb[i*2+1] = byte(x)
+//		fmt.Printf("  %02X %02X\n", txb[i*2+0], txb[i*2+1])
+//	}
+//
+//	machine.Flash.EraseBlocks(0, 1)
+//	_, err := machine.Flash.WriteAt(txb[:256], 0)
+//	if err != nil {
+//		return err
+//	}
+//
+//	return nil
+//}
 
 const (
 	KeyHat        = 0xF000 | 0x2E
@@ -250,20 +251,37 @@ const (
 )
 
 func (kb *keyboard) RxHandler(b []byte) bool {
-	fmt.Printf("RxHandler % X\n", b)
+	switch b[0] {
+	//case 0x12, 0x0E:
+	default:
+		fmt.Printf("RxHandler % X\n", b)
+	}
 	copy(txb[:32], b)
 	switch b[0] {
 	case 0x01:
+		// GetProtocolVersionCount
 		txb[2] = 0x09
 	case 0x11:
+		// DynamicKeymapGetLayerCountCommand
 		txb[1] = 0x06
 	case 0x12:
+		// DynamicKeymapReadBufferCommand
 		offset := (uint16(b[1]) << 8) + uint16(b[2])
+		// offset + 0 〜 offset + 13 までのデータを返す必要あり
+		// このとき、 JSON で指定した row * col を超えると次の layer のデータとなる
+		// なので、 offset + 0 〜 offset + 13 を Keys[layer][row][col] に変換する関数が必要
 		for i := uint16(0); i < 14; i++ {
-			fmt.Printf("%02X %02X\n", (i+offset/2)/18, (i+offset/2)%18)
-			if (i+offset/2)/18 < 5 {
-				txb[i*2+4+0] = byte(Keys[(i+offset/2)/18][(i+offset/2)%18] >> 8)
-				txb[i*2+4+1] = byte(Keys[(i+offset/2)/18][(i+offset/2)%18])
+			idx := i + offset/2
+			ll := uint16(idx / (row * col))
+			rr := uint16((idx % (row * col)) / col)
+			cc := uint16((idx % (row * col)) % col)
+			//fmt.Printf("%02X %02X\n", (i+offset/2)/col, (i+offset/2)%col)
+			if (i+offset/2)/col < row*layer {
+				txb[i*2+4+0] = byte(Keys[ll][rr][cc] >> 8)
+				txb[i*2+4+1] = byte(Keys[ll][rr][cc])
+			} else if offset == 0x0038 {
+				txb[i*2+4+0] = 0
+				txb[i*2+4+1] = 5 // B
 			} else {
 				//txb[i*2+4+0] = byte((offset + i) >> 8)
 				//txb[i*2+4+1] = byte(offset + i)
@@ -272,15 +290,18 @@ func (kb *keyboard) RxHandler(b []byte) bool {
 			}
 		}
 	case 0x0D:
+		// DynamicKeymapMacroGetBufferSizeCommand
 		txb[1] = 0x07
 		txb[2] = 0x9B
 	case 0x0C:
+		// DynamicKeymapMacroGetCountCommand
 		txb[1] = 0x10
 	case 0x0E:
+		// DynamicKeymapMacroGetBufferCommand
 	case 0x02:
 	case 0x05:
 		fmt.Printf("XXXXXXXXX % X\n", b)
-		Keys[b[2]][b[3]] = Keycode((uint16(b[4]) << 8) + uint16(b[5]))
+		Keys[b[1]][b[2]][b[3]] = Keycode((uint16(b[4]) << 8) + uint16(b[5]))
 		//err := SaveKeys()
 		//for err != nil {
 		//	fmt.Printf("error %s\n", err.Error())
@@ -290,6 +311,7 @@ func (kb *keyboard) RxHandler(b []byte) bool {
 		return false
 	}
 	machine.SendUSBInPacket(6, txb[:32])
+	fmt.Printf("Tx        % X\n", txb[:32])
 
 	return true
 }
