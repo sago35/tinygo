@@ -73,43 +73,43 @@ func init() {
 				Changed = false
 				Changed2 = false
 
-				err := machine.Flash.EraseBlocks(0, 1)
+				needed := int64(len(wbuf)) / machine.Flash.EraseBlockSize()
+				if needed == 0 {
+					// have to erase at least 1 block
+					needed = 1
+				}
+				err := machine.Flash.EraseBlocks(0, needed)
 				if err != nil {
 					fmt.Printf("err: %s\n", err.Error())
 					return
 				}
 
-				offset := int64(0)
+				sz := machine.Flash.Size()
+				fmt.Printf("machine.Flash.Size() : %08X\n", sz)
+
+				wbuf[0] = byte(sz >> 24)
+				wbuf[1] = byte(sz >> 16)
+				wbuf[2] = byte(sz >> 8)
+				wbuf[3] = byte(sz >> 0)
+
+				offset := 4
 				for l := 0; l < layer; l++ {
 					for r := 0; r < row; r++ {
 						for c := 0; c < col; c++ {
-							wbuf[2*c+0] = byte(Keys[l][r][c] >> 8)
-							wbuf[2*c+1] = byte(Keys[l][r][c])
+							wbuf[offset+2*c+0] = byte(Keys[l][r][c] >> 8)
+							wbuf[offset+2*c+1] = byte(Keys[l][r][c])
 						}
-
-						fmt.Printf("WriteAt(wbuf[:], %d) : % X\n", 4+offset, wbuf[:])
-						_, err := machine.Flash.WriteAt(wbuf[:], 4+offset)
-						if err != nil {
-							fmt.Printf("err: %s\n", err.Error())
-							return
-						}
-						offset += int64(len(wbuf[:]))
+						offset += col * 2
 					}
 				}
 
-				sz := machine.Flash.Size()
-				keyword := [4]byte{}
-				keyword[0] = byte(sz >> 24)
-				keyword[1] = byte(sz >> 16)
-				keyword[2] = byte(sz >> 8)
-				keyword[3] = byte(sz >> 0)
-				_, err = machine.Flash.WriteAt(keyword[:], 0)
+				_, err = machine.Flash.WriteAt(wbuf[:], 0)
 				if err != nil {
 					fmt.Printf("size write error\n")
 					return
 				}
 
-				fmt.Printf("done\n")
+				fmt.Printf("done : sz = %08X\n", sz)
 			}
 		}
 	}()
@@ -117,16 +117,22 @@ func init() {
 
 func Load() error {
 	keyword := [4]byte{}
-	_, err := machine.Flash.ReadAt(keyword[:], 0)
+	_, err := machine.Flash.ReadAt(keyword[:4], 0)
 	if err != nil {
 		return err
 	}
+	fmt.Printf("keyword: % X\n", keyword[:])
 	size := (int64(keyword[0]) << 24) +
 		(int64(keyword[1]) << 16) +
 		(int64(keyword[2]) << 8) +
 		(int64(keyword[3]) << 0)
+	if false {
+		// debug
+		size++
+	}
+
 	if size != machine.Flash.Size() {
-		fmt.Printf("not loaded\n")
+		fmt.Printf("config: not found : %08X vs %08X\n", size, machine.Flash.Size())
 		//sz := machine.Flash.Size()
 		//keyword[0] = byte(sz >> 24)
 		//keyword[1] = byte(sz >> 16)
@@ -138,7 +144,7 @@ func Load() error {
 		//	return err
 		//}
 	} else {
-		fmt.Printf("loaded\n")
+		fmt.Printf("config: found : %08X vs %08X\n", size, machine.Flash.Size())
 		buf := [2 * col]byte{}
 		offset := int64(0)
 		for l := 0; l < layer; l++ {
@@ -199,7 +205,7 @@ var (
 	Keys     [layer][row][col]Keycode // [row][col]Keycode
 	Changed  bool
 	Changed2 bool
-	wbuf     [col * 2]byte
+	wbuf     [4 + layer*row*col*2]byte
 )
 
 const (
