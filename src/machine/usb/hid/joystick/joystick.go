@@ -3,6 +3,7 @@ package joystick
 import (
 	"machine"
 	"machine/usb"
+	"machine/usb/descriptor"
 	"machine/usb/hid"
 )
 
@@ -32,7 +33,37 @@ func UseSettings(def Definitions, rxHandlerFunc func(b []byte), setupFunc func(s
 	if setupFunc == nil {
 		setupFunc = hid.DefaultSetupHandler
 	}
-	machine.EnableJoystick(js.handler, rxHandlerFunc, setupFunc, hidDesc)
+	class, err := descriptor.FindClassHIDType(descriptor.CDCJoystick.Configuration, descriptor.ClassHIDJoystick.Bytes())
+	if err != nil {
+		// TODO: some way to notify about error
+		return nil
+	}
+
+	class.ClassLength(uint16(len(hidDesc)))
+	descriptor.CDCJoystick.HID[2] = hidDesc
+
+	machine.RegisterUSB(descriptor.CDCJoystick,
+		[]machine.Endpoint{
+			{
+				No:        usb.HID_ENDPOINT_OUT,
+				IsIn:      false,
+				Type:      usb.ENDPOINT_TYPE_INTERRUPT,
+				RxHandler: rxHandlerFunc,
+			},
+			{
+				No:        usb.HID_ENDPOINT_IN,
+				IsIn:      true,
+				Type:      usb.ENDPOINT_TYPE_INTERRUPT,
+				TxHandler: js.handler,
+			},
+		},
+		[]machine.Setup{
+			{
+				No:      usb.HID_INTERFACE,
+				Handler: setupFunc,
+			},
+		},
+	)
 	Joystick = js
 	return js
 }
