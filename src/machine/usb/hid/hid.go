@@ -42,6 +42,17 @@ func SetHandler(d hidDevicer) {
 					Type:      usb.ENDPOINT_TYPE_INTERRUPT,
 					TxHandler: handler,
 				},
+				{
+					No:        usb.MIDI_ENDPOINT_OUT,
+					IsIn:      false,
+					Type:      usb.ENDPOINT_TYPE_INTERRUPT,
+					RxHandler: rxHandler,
+				},
+				{
+					No:   usb.MIDI_ENDPOINT_IN,
+					IsIn: true,
+					Type: usb.ENDPOINT_TYPE_INTERRUPT,
+				},
 			},
 			[]usb.SetupConfig{
 				{

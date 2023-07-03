@@ -9,8 +9,8 @@ import (
 var configurationCDCHID = [configurationTypeLen]byte{
 	configurationTypeLen,
 	TypeConfiguration,
-	0x64, 0x00, // adjust length as needed
-	0x03, // number of interfaces
+	0x84, 0x00, // adjust length as needed
+	0x04, // number of interfaces
 	0x01, // configuration value
 	0x00, // index to string description
 	0xa0, // attributes
@@ -128,6 +128,13 @@ var CDCHID = Descriptor{
 		InterfaceHID.Bytes(),
 		ClassHID.Bytes(),
 		EndpointEP4IN.Bytes(),
+		[]byte{
+			// 32 byte
+			0x09, 0x04, 0x03, 0x00, 0x02, 0x03, 0x00, 0x00, 0x00,
+			0x09, 0x21, 0x11, 0x01, 0x00, 0x01, 0x22, 0x22, 0x00,
+			0x07, 0x05, 0x86, 0x03, 0x20, 0x00, 0x01,
+			0x07, 0x05, 0x07, 0x03, 0x20, 0x00, 0x01,
+		},
 	}),
 	HID: map[uint16][]byte{
 		2: Append([][]byte{
@@ -201,5 +208,23 @@ var CDCHID = Descriptor{
 			HIDReportCount(1),
 			HIDInputDataAryAbs,
 			HIDCollectionEnd}),
+		3: []byte{
+			0x06, 0x60, 0xff, // Usage Page (Vendor-Defined 0xFF60)
+			0x09, 0x61, // Usage (Vendor-Defined 0x61)
+			0xa1, 0x01, // Collection (Application)
+			0x09, 0x62, //   Usage (Vendor-Defined 0x62)
+			0x15, 0x00, //   Logical Minimum (0)
+			0x26, 0xff, 0x00, //   Logical Maximum (255)
+			0x95, 0x20, //   Report Count (32)
+			0x75, 0x08, //   Report Size (8)
+			0x81, 0x02, //   Input (Data, Var, Abs)
+			0x09, 0x63, //   Usage (Vendor-Defined 0x63)
+			0x15, 0x00, //   Logical Minimum (0)
+			0x26, 0xff, 0x00, //   Logical Maximum (255)
+			0x95, 0x20, //   Report Count (32)
+			0x75, 0x08, //   Report Size (8)
+			0x91, 0x02, //   Output (Data, Var, Abs)
+			0xc0, // End Collection
+		},
 	},
 }
