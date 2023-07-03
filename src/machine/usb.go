@@ -307,3 +307,38 @@ func EnableJoystick(txHandler func(), rxHandler func([]byte), setupHandler func(
 	usbTxHandler[usb.HID_ENDPOINT_IN] = txHandler
 	usbSetupHandler[usb.HID_INTERFACE] = setupHandler // 0x03 (HID - Human Interface Device)
 }
+
+type Endpoint struct {
+	No        uint8
+	IsIn      bool
+	TxHandler func()
+	RxHandler func([]byte)
+	Type      uint8
+}
+
+type Setup struct {
+	No      uint8
+	Handler func(usb.Setup) bool
+}
+
+func RegisterUSB(desc descriptor.Descriptor, epSettings []Endpoint, setup []Setup) {
+	usbDescriptor = desc
+
+	for _, ep := range epSettings {
+		if ep.IsIn {
+			endPoints[ep.No] = uint32(ep.Type | usb.EndpointIn)
+			if ep.TxHandler != nil {
+				usbTxHandler[ep.No] = ep.TxHandler
+			}
+		} else {
+			endPoints[ep.No] = uint32(ep.Type | usb.EndpointOut)
+			if ep.RxHandler != nil {
+				usbRxHandler[ep.No] = ep.RxHandler
+			}
+		}
+	}
+
+	for _, s := range setup {
+		usbSetupHandler[s.No] = s.Handler
+	}
+}
