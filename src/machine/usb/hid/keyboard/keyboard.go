@@ -2,8 +2,10 @@ package keyboard
 
 import (
 	"errors"
+	"fmt"
 	"machine"
 	"machine/usb/hid"
+	"time"
 )
 
 // from usb-hid-keyboard.go
@@ -62,6 +64,113 @@ func init() {
 		Keyboard = newKeyboard()
 		hid.SetHandler(Keyboard)
 	}
+
+	go func() {
+		for {
+			time.Sleep(100 * time.Millisecond)
+			if Changed && Changed2 {
+				fmt.Printf("Changed\n")
+				Changed = false
+				Changed2 = false
+
+				needed := int64(len(wbuf)) / machine.Flash.EraseBlockSize()
+				if needed == 0 {
+					// have to erase at least 1 block
+					needed = 1
+				}
+				err := machine.Flash.EraseBlocks(0, needed)
+				if err != nil {
+					fmt.Printf("err: %s\n", err.Error())
+					return
+				}
+
+				sz := machine.Flash.Size()
+				fmt.Printf("machine.Flash.Size() : %08X\n", sz)
+
+				wbuf[0] = byte(sz >> 24)
+				wbuf[1] = byte(sz >> 16)
+				wbuf[2] = byte(sz >> 8)
+				wbuf[3] = byte(sz >> 0)
+
+				offset := 4
+				layer := len(Keys)
+				row := len(Keys[0])
+				col := len(Keys[0][0])
+				for l := 0; l < layer; l++ {
+					for r := 0; r < row; r++ {
+						for c := 0; c < col; c++ {
+							wbuf[offset+2*c+0] = byte(Keys[uint8(l)][r][c] >> 8)
+							wbuf[offset+2*c+1] = byte(Keys[uint8(l)][r][c])
+						}
+						offset += col * 2
+					}
+				}
+
+				_, err = machine.Flash.WriteAt(wbuf[:], 0)
+				if err != nil {
+					fmt.Printf("size write error\n")
+					return
+				}
+
+				fmt.Printf("done : sz = %08X\n", sz)
+			}
+		}
+	}()
+}
+
+func Load(l, r, c int) error {
+	Keys = make([][][]Keycode, l)
+	for ll := range Keys {
+		Keys[ll] = make([][]Keycode, r)
+		for rr := range Keys[ll] {
+			Keys[ll][rr] = make([]Keycode, c)
+		}
+	}
+	wbuf = make([]byte, 4+l*r*c*2)
+
+	keyword := [4]byte{}
+	_, err := machine.Flash.ReadAt(keyword[:4], 0)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("keyword: % X\n", keyword[:])
+	size := (int64(keyword[0]) << 24) +
+		(int64(keyword[1]) << 16) +
+		(int64(keyword[2]) << 8) +
+		(int64(keyword[3]) << 0)
+	if false {
+		// debug
+		size++
+	}
+
+	if size != machine.Flash.Size() {
+		fmt.Printf("config: not found : %08X vs %08X\n", size, machine.Flash.Size())
+	} else {
+		fmt.Printf("config: found : %08X vs %08X\n", size, machine.Flash.Size())
+
+		layer := len(Keys)
+		row := len(Keys[0])
+		col := len(Keys[0][0])
+		buf := make([]byte, 2*col)
+		offset := int64(0)
+		for l := 0; l < layer; l++ {
+			for r := 0; r < row; r++ {
+				_, err := machine.Flash.ReadAt(buf[:], 4+offset)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("% X\n", buf[:])
+
+				for c := 0; c < col; c++ {
+					Keys[uint8(l)][r][c] = Keycode((uint16(buf[2*c]) << 8) + uint16(buf[2*c+1]))
+					fmt.Printf("Keys[%d][%d][%d] = %04X\n", l, r, c, Keys[uint8(l)][r][c])
+				}
+
+				offset += int64(len(buf))
+			}
+		}
+	}
+	return nil
 }
 
 // New returns the USB hid-keyboard port.
@@ -91,8 +200,84 @@ func (kb *keyboard) Handler() bool {
 	return false
 }
 
+var (
+	txb      [256]byte
+	Keys     [][][]Keycode // [row][col]Keycode
+	Changed  bool
+	Changed2 bool
+	wbuf     []byte
+)
+
 func (kb *keyboard) RxHandler(b []byte) bool {
-	return false
+	switch b[0] {
+	//case 0x12, 0x0E:
+	default:
+		fmt.Printf("RxHandler % X\n", b)
+	}
+	copy(txb[:32], b)
+	switch b[0] {
+	case 0x01:
+		// GetProtocolVersionCount
+		txb[2] = 0x09
+	case 0x11:
+		// DynamicKeymapGetLayerCountCommand
+		txb[1] = 0x06
+	case 0x12:
+		// DynamicKeymapReadBufferCommand
+		offset := (uint16(b[1]) << 8) + uint16(b[2])
+		sz := b[3]
+		// offset + 0 〜 offset + sz/2 までのデータを返す必要あり
+		// このとき、 JSON で指定した row * col を超えると次の layer のデータとなる
+		// なので、 offset + 0 〜 offset + sz/2 を Keys[layer][row][col] に変換する関数が必要
+		layer := len(Keys)
+		row := len(Keys[0])
+		col := len(Keys[0][0])
+		for i := 0; i < int(sz/2); i++ {
+			idx := i + int(offset)/2
+			ll := uint8(idx / (row * col))
+			rr := uint8((idx % (row * col)) / col)
+			cc := uint8((idx % (row * col)) % col)
+			//fmt.Printf("%02X %02X\n", (i+offset/2)/col, (i+offset/2)%col)
+			if (i+int(offset)/2)/col < row*layer {
+				txb[i*2+4+0] = byte(Keys[ll][rr][cc] >> 8)
+				txb[i*2+4+1] = byte(Keys[ll][rr][cc])
+			} else if offset == 0x0038 {
+				txb[i*2+4+0] = 0
+				txb[i*2+4+1] = 5 // B
+			} else {
+				//txb[i*2+4+0] = byte((offset + i) >> 8)
+				//txb[i*2+4+1] = byte(offset + i)
+				txb[i*2+4+0] = 0
+				txb[i*2+4+1] = 4 // A
+			}
+		}
+		if offset+uint16(sz) >= uint16(layer*col*row*2) {
+			Changed2 = true
+		}
+
+	case 0x0D:
+		// DynamicKeymapMacroGetBufferSizeCommand
+		txb[1] = 0x07
+		txb[2] = 0x9B
+	case 0x0C:
+		// DynamicKeymapMacroGetCountCommand
+		txb[1] = 0x10
+	case 0x0E:
+		// DynamicKeymapMacroGetBufferCommand
+	case 0x02:
+		Changed = false
+		Changed2 = false
+	case 0x05:
+		fmt.Printf("XXXXXXXXX % X\n", b)
+		Keys[b[1]][b[2]][b[3]] = Keycode((uint16(b[4]) << 8) + uint16(b[5]))
+		Changed = true
+	default:
+		return false
+	}
+	machine.SendUSBInPacket(6, txb[:32])
+	fmt.Printf("Tx        % X\n", txb[:32])
+
+	return true
 }
 
 func (kb *keyboard) tx(b []byte) {
