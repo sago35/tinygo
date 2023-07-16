@@ -73,6 +73,8 @@ const (
 	CDC_ENDPOINT_IN   = 3
 	HID_ENDPOINT_IN   = 4 // for Interrupt In
 	HID_ENDPOINT_OUT  = 5 // for Interrupt Out
+	HID_ENDPOINT_IN2  = 6 // for Interrupt In
+	HID_ENDPOINT_OUT2 = 7 // for Interrupt Out
 	MIDI_ENDPOINT_IN  = 6 // for Bulk In
 	MIDI_ENDPOINT_OUT = 7 // for Bulk Out
 	NumberOfEndpoints = 8
