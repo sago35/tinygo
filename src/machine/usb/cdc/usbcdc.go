@@ -88,7 +88,11 @@ func (usbcdc *USBCDC) Configure(config machine.UARTConfig) error {
 func (usbcdc *USBCDC) Flush() {
 	mask := interrupt.Disable()
 	if b, ok := usbcdc.txBuffer.Get(); ok {
-		machine.SendUSBInPacket(cdcEndpointIn, b)
+		if len(b) > 0 {
+			machine.SendUSBInPacket(cdcEndpointIn, b)
+		} else {
+			machine.SendUSBInPacket(cdcEndpointIn, txBuf[:0])
+		}
 	} else {
 		usbcdc.waitTxc = false
 	}
@@ -98,6 +102,9 @@ func (usbcdc *USBCDC) Flush() {
 // Write data to the USBCDC.
 func (usbcdc *USBCDC) Write(data []byte) (n int, err error) {
 	if usbLineInfo.lineState > 0 {
+		if len(data) == 0 {
+			return 0, nil
+		}
 		mask := interrupt.Disable()
 		usbcdc.txBuffer.Put(data)
 		if !usbcdc.waitTxc {

@@ -53,11 +53,14 @@ func (rb *rxRingBuffer) Clear() {
 
 const txRingBufferSize = 8
 
+//go:align 4
+var txBuf [64 * txRingBufferSize]uint8
+
 // txRingBuffer is ring buffer implementation inspired by post at
 // https://www.embeddedrelated.com/showthread/comp.arch.embedded/77084-1.php
 type txRingBuffer struct {
 	buffer [txRingBufferSize]struct {
-		buf  [64]byte
+		buf  []byte
 		size int
 	}
 	head volatile.Register8
@@ -66,7 +69,13 @@ type txRingBuffer struct {
 
 // NewTxRingBuffer returns a new ring buffer.
 func NewTxRingBuffer() *txRingBuffer {
-	return &txRingBuffer{}
+	rb := &txRingBuffer{}
+
+	for i := 0; i < txRingBufferSize; i++ {
+		rb.buffer[i].buf = txBuf[i*64 : i*64+64]
+	}
+
+	return rb
 }
 
 // Used returns how many bytes in buffer have been used.
@@ -92,11 +101,18 @@ func (rb *txRingBuffer) Put(val []byte) bool {
 			// next
 			// TODO: Make sure that data is not corrupted even when the buffer is full
 			rb.head.Set(rb.head.Get() + 1)
-			buf = &rb.buffer[rb.head.Get()%txRingBufferSize]
 			rb.buffer[rb.head.Get()%txRingBufferSize].size = 0
+			buf = &rb.buffer[rb.head.Get()%txRingBufferSize]
 		}
 		buf.buf[buf.size] = val[i]
 		buf.size++
+	}
+	if buf.size == 64 {
+		// next
+		// TODO: Make sure that data is not corrupted even when the buffer is full
+		rb.head.Set(rb.head.Get() + 1)
+		buf = &rb.buffer[rb.head.Get()%txRingBufferSize]
+		rb.buffer[rb.head.Get()%txRingBufferSize].size = 0
 	}
 	return true
 }
