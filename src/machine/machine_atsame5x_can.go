@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	CANRxFifoSize = 16
-	CANTxFifoSize = 16
-	CANEvFifoSize = 16
+	CANRxFifoSize = 32
+	CANTxFifoSize = 32
+	CANEvFifoSize = 32
 )
 
 // Message RAM can only be located in the first 64 KB area of the system RAM.
@@ -129,7 +129,7 @@ func (can *CAN) Configure(config CANConfig) error {
 	can.Bus.DBTP.Set((brp-1)<<sam.CAN_DBTP_DBRP_Pos | 8<<sam.CAN_DBTP_DTSEG1_Pos |
 		1<<sam.CAN_DBTP_DTSEG2_Pos | 3<<sam.CAN_DBTP_DSJW_Pos)
 
-	can.Bus.RXF0C.Set(sam.CAN_RXF0C_F0OM | CANRxFifoSize<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[can.instance()][0])))&0xFFFF)
+	can.Bus.RXF0C.Set(sam.CAN_RXF0C_F0OM | 1<<sam.CAN_RXF0C_F0WM_Pos | CANRxFifoSize<<sam.CAN_RXF0C_F0S_Pos | uint32(uintptr(unsafe.Pointer(&CANRxFifo[can.instance()][0])))&0xFFFF)
 	can.Bus.RXESC.Set(sam.CAN_RXESC_F0DS_DATA64)
 	can.Bus.TXESC.Set(sam.CAN_TXESC_TBDS_DATA64)
 	can.Bus.TXBC.Set(CANTxFifoSize<<sam.CAN_TXBC_TFQS_Pos | 0<<sam.CAN_TXBC_NDTB_Pos | uint32(uintptr(unsafe.Pointer(&CANTxFifo[can.instance()][0])))&0xFFFF)
