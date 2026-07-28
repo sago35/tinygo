@@ -144,11 +144,15 @@ func rtc_sleep(ticks uint32) {
 	target := (nrf.RTC1.COUNTER.Get() + ticks) & 0x00ffffff
 	nrf.RTC1.CC[0].Set(target)
 	// An interrupt here can leave CC at or behind COUNTER, and COMPARE then waits for the 24 bit wrap.
-	// CC within one tick of COUNTER may also miss, see https://docs.nordicsemi.com/bundle/ps_nrf52840/page/rtc.html
-	if remaining := (target - nrf.RTC1.COUNTER.Get()) & 0x00ffffff; remaining < 2 || remaining > ticks {
+	// COMPARE can miss when CC is less than 2 ticks ahead. Use 4 to keep a margin, see https://docs.nordicsemi.com/bundle/ps_nrf52840/page/rtc.html
+	if remaining := (target - nrf.RTC1.COUNTER.Get()) & 0x00ffffff; remaining < 4 || remaining > ticks {
 		return
 	}
 	for rtc_wakeup.Get() == 0 {
+		// COUNTER can pass the target before the wait starts. Do the check again after each wakeup.
+		if (target-nrf.RTC1.COUNTER.Get())&0x00ffffff > ticks {
+			return
+		}
 		waitForEvents()
 	}
 }
