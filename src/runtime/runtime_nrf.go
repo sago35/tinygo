@@ -141,8 +141,36 @@ func rtc_sleep(ticks uint32) {
 		// describes.
 		ticks = 2
 	}
-	nrf.RTC1.CC[0].Set((nrf.RTC1.COUNTER.Get() + ticks) & 0x00ffffff)
+	target := (nrf.RTC1.COUNTER.Get() + ticks) & 0x00ffffff
+	nrf.RTC1.CC[0].Set(target)
+
+	// An interrupt (such as a SoftDevice radio event) can delay execution
+	// between reading COUNTER for the target and the CC write landing, long
+	// enough that the counter has already caught up with the target. The RTC
+	// only generates a COMPARE event when CC is written at least 2 ticks
+	// ahead of COUNTER, so in that case COMPARE0 never fires and the sleep
+	// would only end when the 24-bit counter wraps around, 512 seconds
+	// later. If the margin is already (nearly) consumed, the intended sleep
+	// duration has effectively elapsed: return without waiting. The margin
+	// is compared against 4 rather than 2 because COUNTER is read a few
+	// instructions after the CC write, so the measured distance slightly
+	// understates the write-time margin. Forcing the wakeup by writing
+	// EVENTS_COMPARE[0] instead proved unreliable (the same interrupt window
+	// that eats the margin can hold off the forced IRQ path as well), so
+	// this deliberately depends on nothing but straight-line code.
+	if d := (target - nrf.RTC1.COUNTER.Get()) & 0x00ffffff; d < 4 || d > 0x00800000 {
+		return
+	}
+
 	for rtc_wakeup.Get() == 0 {
+		// The counter can also pass the target between the check above (or a
+		// wakeup from waitForEvents) and the wfe, so re-check on every
+		// iteration; any later interrupt re-runs the check. sleepTicks caps
+		// ticks at 23 bits, so "target is in the past" is exactly the upper
+		// half of the 24-bit distance range.
+		if (target-nrf.RTC1.COUNTER.Get())&0x00ffffff > 0x00800000 {
+			return
+		}
 		waitForEvents()
 	}
 }
