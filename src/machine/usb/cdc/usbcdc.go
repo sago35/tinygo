@@ -104,12 +104,28 @@ func (usbcdc *USBCDC) Write(data []byte) (n int, err error) {
 	if usbLineInfo.lineState <= 0 {
 		return n, nil
 	}
+	spins := 0
 	for len(data) > 0 {
 		tosend := min(len(data), int(usbcdc.tx.Free()))
 		if tosend == 0 {
-			gosched()
+			// The ring only frees up when the host acknowledges IN
+			// transfers, so it can stay full forever when the host stops
+			// draining it: cable unplugged while DTR was set (nothing
+			// clears lineState), or a terminal that opened the port but
+			// stopped reading. A full ring alone cannot distinguish that
+			// from a healthy host that simply has not drained it yet, so
+			// use time: an IN completion takes sub-ms to a few ms, and
+			// after ~100ms with no forward progress at all the host is
+			// considered gone. This is a debug console: drop the rest
+			// instead of blocking forever.
+			spins++
+			if spins > 100 {
+				return n, nil
+			}
+			sleep(1_000_000) // 1ms: spans the IN-completion latency
 			continue
 		}
+		spins = 0
 		usbcdc.tx.Put(data[:tosend])
 		data = data[tosend:]
 		usbcdc.kickTx()
@@ -255,3 +271,10 @@ func EnableUSBCDC() {
 
 //go:linkname gosched runtime.Gosched
 func gosched()
+
+// sleep is time.Sleep, linknamed to its runtime implementation because this
+// package is imported by the runtime and so cannot import time itself. The
+// duration is in nanoseconds.
+//
+//go:linkname sleep time.Sleep
+func sleep(duration int64)
