@@ -133,7 +133,8 @@ func ticks() timeUnit {
 var rtc_wakeup volatile.Register8
 
 func rtc_sleep(ticks uint32) {
-	nrf.RTC1.INTENSET.Set(nrf.RTC_INTENSET_COMPARE0)
+	// Disarm first so a stale compare cannot erase this sleep's wakeup.
+	nrf.RTC1.INTENCLR.Set(nrf.RTC_INTENSET_COMPARE0)
 	rtc_wakeup.Set(0)
 	if ticks == 1 {
 		// Race condition (even in hardware) at ticks == 1.
@@ -143,6 +144,9 @@ func rtc_sleep(ticks uint32) {
 	}
 	target := (nrf.RTC1.COUNTER.Get() + ticks) & 0x00ffffff
 	nrf.RTC1.CC[0].Set(target)
+	// Drop a stale compare of the previous CC, then arm.
+	nrf.RTC1.EVENTS_COMPARE[0].Set(0)
+	nrf.RTC1.INTENSET.Set(nrf.RTC_INTENSET_COMPARE0)
 
 	// An interrupt (such as a SoftDevice radio event) can delay execution
 	// between reading COUNTER for the target and the CC write landing, long
